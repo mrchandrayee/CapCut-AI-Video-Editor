@@ -173,17 +173,31 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
     },
   })
 
-  const url = IS_DEV
-    ? `http://localhost:${FRONTEND_PORT}`
-    : `http://localhost:${PORT_BACKEND}`
+  const distIndex = path.join(__dirname, '..', 'frontend', 'dist', 'index.html')
+  const packagedIndex = path.join(app.getAppPath(), 'frontend', 'dist', 'index.html')
+  const localIndex = require('fs').existsSync(packagedIndex) ? packagedIndex : distIndex
 
-  mainWindow.loadURL(url)
+  if (IS_DEV) {
+    mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`)
+    mainWindow.webContents.openDevTools()
+  } else {
+    // In production, try backend first; if it's not ready, fallback to local bundle
+    mainWindow.loadURL(`http://localhost:${PORT_BACKEND}`).catch(() => {
+      console.log('[electron] Backend not available, loading local index.html')
+      mainWindow.loadFile(localIndex)
+    })
+  }
 
-  if (IS_DEV) mainWindow.webContents.openDevTools()
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.warn(`[electron] Failed to load ${validatedURL} (${errorCode}: ${errorDescription})`)
+    if (validatedURL && validatedURL.startsWith('http://localhost')) {
+      mainWindow.loadFile(localIndex).catch((e) => console.error('[electron] loadFile failed:', e))
+    }
+  })
 
   mainWindow.on('closed', () => { mainWindow = null })
 
@@ -204,7 +218,7 @@ function buildMenu() {
       ],
     },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
-    { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
+    { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     {
       label: 'Help',
       submenu: [

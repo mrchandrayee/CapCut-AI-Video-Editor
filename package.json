@@ -1,6 +1,6 @@
 {
   "name": "hindi-video-studio",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "Local Hindi/Hinglish AI Video Production Studio — fully offline, no cloud",
   "main": "electron/main.js",
   "author": {

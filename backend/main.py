@@ -15,6 +15,7 @@ from typing import Dict, Set
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from db.models import init_db
 from routes.health import router as health_router
@@ -83,6 +84,11 @@ app.include_router(health_router)
 app.include_router(projects_router)
 app.include_router(pipeline_router)
 app.include_router(settings_router)
+
+# ── Serve Frontend SPA ────────────────────────────────────────────────────────
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
 
 
 # ── WebSocket endpoint ───────────────────────────────────────────────────────

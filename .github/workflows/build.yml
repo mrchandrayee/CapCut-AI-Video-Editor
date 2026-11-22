@@ -57,7 +57,7 @@ jobs:
           body: |
             ## DRISHQAN ${{ github.ref_name }}
 
-> **Drishya + Creation** — Visual Creation Local AI Video Studio
+            > **Drishya + Creation** — Visual Creation Local AI Video Studio
 
             ### 🚀 Downloads
             | Platform | File | Architecture |

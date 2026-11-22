@@ -54,18 +54,33 @@ jobs:
           body: |
             ## Cutflow ${{ github.ref_name }}
 
-            ### Downloads
-            | Platform | File | Notes |
+            ### 🚀 Downloads
+            | Platform | File | Architecture |
             |---|---|---|
-            | 🍎 macOS | `.dmg` | Apple Silicon + Intel |
-            | 🪟 Windows | `.exe` | Windows 10/11 64-bit |
-            | 🐧 Linux | `.deb` | Ubuntu / Debian |
+            | 🍎 macOS | `Cutflow-${{ github.ref_name }}-mac-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
+            | 🍎 macOS | `Cutflow-${{ github.ref_name }}-mac-x64.dmg` | Intel Macs |
+            | 🪟 Windows | `Cutflow-${{ github.ref_name }}-win-x64.exe` | Windows 10/11 (64-bit) |
+            | 🐧 Linux | `Cutflow-${{ github.ref_name }}-linux-amd64.deb` | Ubuntu / Debian |
 
-            ### First Run (macOS)
+            ---
+
+            ### 🍎 macOS Fix: Gatekeeper & 1-Click Run Command
+            Apple Gatekeeper blocks unsigned open-source applications on macOS Sequoia/Sonoma.
+
+            **To install and launch Cutflow in 1 second without any errors, paste this in Terminal:**
             ```bash
-            # Gatekeeper unlock
-            xattr -cr /Applications/Cutflow.app
+            cp -R "/Volumes/Cutflow 0.1.0/Cutflow.app" /Applications/ 2>/dev/null || true
+            sudo xattr -cr "/Applications/Cutflow.app"
+            codesign --force --deep --sign - "/Applications/Cutflow.app"
+            open "/Applications/Cutflow.app"
             ```
+
+            **Single-line command:**
+            ```bash
+            sudo xattr -cr "/Applications/Cutflow.app" && codesign --force --deep --sign - "/Applications/Cutflow.app" && open "/Applications/Cutflow.app"
+            ```
+
+            ---
 
             ### Requirements
             - Python 3.10+

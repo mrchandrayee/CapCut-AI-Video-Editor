@@ -1,14 +1,30 @@
-# Hindi Video Studio
+# Cutflow — Unified AI Video Studio
 
-A fully self-contained desktop application for AI-powered Hindi/Hinglish video production. No external services needed, no API keys, no cloud calls — everything runs locally on your Mac.
+A fully self-contained desktop application for AI-powered video production. Built with Cutflow UI + local AI video generators (Lance 3B, LTX, Wan 2.2, CogVideoX) + 22-language Indian TTS (Indic-Parler-TTS) + automated captions and timeline.
 
-## Requirements
+No external services needed, no API keys, no cloud calls — runs locally on your computer.
 
-- macOS (Apple Silicon recommended — M1/M2/M3/M4)
-- Python 3.10+
-- Node.js 18+
+---
 
-## Quick Start
+## 🍎 macOS Installation & 1-Click Launch Guide
+
+On macOS Sequoia & Sonoma, unsigned open-source apps downloaded from the internet are blocked by Gatekeeper with a *"Malware Blocked"* warning.
+
+### Step 1: Download & Open DMG
+Download `Cutflow-0.1.0-mac-arm64.dmg` (for M1/M2/M3/M4) or `mac-x64.dmg` (for Intel) from [Releases](https://github.com/mrchandrayee/CapCut-in-AI-Video-studio/releases). Double-click the DMG to open it.
+
+### Step 2: Run in Terminal (1-Click Install & Run)
+Open **Terminal** and copy-paste this single command:
+
+```bash
+cp -R "/Volumes/Cutflow 0.1.0/Cutflow.app" /Applications/ && sudo xattr -cr "/Applications/Cutflow.app" && codesign --force --deep --sign - "/Applications/Cutflow.app" && open "/Applications/Cutflow.app"
+```
+
+*(Enter your Mac password when prompted. The app will be copied to Applications, quarantine lock removed, and launched immediately without any error).*
+
+---
+
+## 🚀 Quick Start (Development & Local Engines)
 
 ```bash
 bash start.sh

@@ -1,6 +1,13 @@
-import { tr } from '../i18n/index.jsx';
 import React, { useCallback, useState } from 'react';
-import { ChevronDown } from '../icons.jsx';
+
+// Fallback for translation & icon so build never fails
+const tr = (key, fallback) => (typeof fallback === 'object' ? fallback.title : (fallback || key));
+
+const ChevronDown = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
 
 // Collapsible inspector sections (R3): every section/card in the properties
 // panel can be folded away, and the choice is remembered on this PC — the

@@ -7,6 +7,8 @@ ASS format reference:
   [Events] with Dialogue lines carrying fade effects
 
 Devanagari detection: Unicode block U+0900–U+097F
+TEXT_DEFAULTS alignment: stroke width 6, shadow enabled, fade animIn/animOut 300ms,
+font Noto Sans Devanagari for Hindi text.
 """
 from __future__ import annotations
 
@@ -19,6 +21,12 @@ log = logging.getLogger(__name__)
 # Unicode range for Devanagari script
 DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
 
+# Fade in/out ms matching Cutflow render.js TEXT_DEFAULTS animIn/animOut dur (0.3s / 0.3s)
+FADE_IN_MS = 300
+FADE_OUT_MS = 300
+
+# ASS colour: &HAABBGGRR  (alpha 00 = fully opaque, FF = transparent)
+# Primary white, outline black, back colour semi-transparent black (&H80000000)
 ASS_HEADER = """\
 [Script Info]
 ScriptType: v4.00+
@@ -28,8 +36,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Devanagari,Noto Sans Devanagari,52,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,30,1
-Style: Latin,Inter,52,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,1,2,10,10,30,1
+Style: Devanagari,Noto Sans Devanagari,52,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,6,1,2,10,10,30,1
+Style: Latin,Inter,52,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,6,1,2,10,10,30,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -45,6 +53,7 @@ class CaptionsService:
     ) -> str:
         """
         Convert SRT file to ASS with per-line script detection.
+        Applies stroke width 6, shadow, and 300ms fade in/out per TEXT_DEFAULTS.
         Returns the output_path.
         """
         srt_content = Path(srt_path).read_text(encoding="utf-8")
@@ -57,8 +66,8 @@ class CaptionsService:
             text = block["text"].replace("\n", "\\N")
             # Detect script
             style = "Devanagari" if DEVANAGARI_RE.search(text) else "Latin"
-            # Add fade-in / fade-out effect
-            styled_text = r"{\fad(150,100)}" + text
+            # Add fade-in / fade-out effect matching animIn: {dur:0.3} / animOut: {dur:0.3}
+            styled_text = r"{\fad(" + str(FADE_IN_MS) + r"," + str(FADE_OUT_MS) + r")}" + text
             dialogue_lines.append(
                 f"Dialogue: 0,{start},{end},{style},,0,0,0,,{styled_text}"
             )
@@ -74,7 +83,7 @@ class CaptionsService:
         """Create a single-entry ASS file from plain text, used when no SRT exists."""
         end_time = _seconds_to_ass(duration)
         style = "Devanagari" if DEVANAGARI_RE.search(text) else "Latin"
-        line = r"{\fad(150,100)}" + text.replace("\n", "\\N")
+        line = r"{\fad(" + str(FADE_IN_MS) + r"," + str(FADE_OUT_MS) + r")}" + text.replace("\n", "\\N")
         dialogue = f"Dialogue: 0,0:00:00.00,{end_time},{style},,0,0,0,,{line}"
         ass_content = ASS_HEADER + dialogue + "\n"
         Path(output_path).write_text(ass_content, encoding="utf-8")
@@ -113,7 +122,6 @@ def _parse_srt(content: str) -> list[dict]:
 
 def _srt_time_to_ass(srt_time: str) -> str:
     """Convert SRT timestamp (HH:MM:SS,mmm) to ASS timestamp (H:MM:SS.cc)."""
-    # e.g. "00:01:23,456" → "0:01:23.45"
     srt_time = srt_time.replace(",", ".")
     parts = srt_time.split(".")
     main = parts[0]  # HH:MM:SS

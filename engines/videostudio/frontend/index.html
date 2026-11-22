@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Studio KH</title>
+  <link rel="stylesheet" href="/assets/style.css?v=v0100" />
+  <!-- Order matters: app.js defines the global studio() that Alpine's x-data
+       calls, so it must load before alpine.min.js. prompts.js seeds samples. -->
+  <script src="/assets/auth.js?v=fleet-1"></script>
+  <script defer src="/assets/prompts.js?v=v1"></script>
+  <script defer src="/assets/app.js?v=v0100"></script>
+  <script defer src="/assets/alpine.min.js?v=v1"></script>
+</head>
+<body x-data="studio()" x-init="init()">
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="/assets/icon.png?v=v1" alt="Video Studio" />
+      <span class="brand-name">Video Studio</span>
+      <span class="brand-tag">Apple Silicon · MLX + Diffusers</span>
+    </div>
+    <nav class="tabs">
+      <button :class="{active: tab==='generate'}" @click="tab='generate'">Generate</button>
+      <button :class="{active: tab==='models'}" @click="tab='models'">Models</button>
+      <button :class="{active: tab==='downloads'}" @click="tab='downloads'">
+        Downloads <span class="badge" x-show="activeDownloads.length" x-text="activeDownloads.length"></span>
+      </button>
+      <button :class="{active: tab==='settings'}" @click="tab='settings'">Settings</button>
+    </nav>
+    <div class="topbar-right">
+      <span class="version-badge" x-text="'v' + health.app_version" x-show="health.app_version" x-cloak></span>
+      <span class="health" :class="health.ok ? 'ok' : 'bad'" :title="health.ok ? 'server up' : 'server down'"></span>
+      <span x-text="health.ok ? 'online' : 'offline'"></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ─────────────── GENERATE ─────────────── -->
+    <section x-show="tab==='generate'" class="pane" x-cloak>
+
+      <header class="workspace-intro">
+        <div class="workspace-copy">
+          <span class="workspace-kicker">Video workspace</span>
+          <h1>Generate video</h1>
+          <p>Choose a motion model, set the source mode, and shape the clip before committing to a render.</p>
+        </div>
+        <div class="workspace-meta" aria-label="Current video workspace status">
+          <div class="workspace-stat">
+            <span>Model</span>
+            <strong x-text="selectedModel ? selectedModel.label + ' · Local' : (selectableGenerationModels.length ? 'Choose a model' : 'No model ready')"></strong>
+          </div>
+          <div class="workspace-stat mode-stat">
+            <span>Mode</span>
+            <strong x-text="modeLabel(gen.mode)"></strong>
+          </div>
+          <div class="workspace-stat">
+            <span>Clip</span>
+            <strong x-text="gen.fps ? (gen.frames / gen.fps).toFixed(1) + ' sec' : '—'"></strong>
+          </div>
+          <div class="workspace-stat">
+            <span>Format</span>
+            <strong x-text="gen.width + '×' + gen.height + ' · ' + gen.fps + ' FPS'"></strong>
+          </div>
+          <div class="workspace-stat">
+            <span>Frames / seed</span>
+            <strong x-text="gen.frames + ' · ' + (gen.seed === -1 ? 'random' : gen.seed)"></strong>
+          </div>
+        </div>
+      </header>
+
+      <!-- engine-not-installed banner -->
+      <div class="banner warn" x-show="diag.checked && !gen.available">
+        <strong>Video engine not installed.</strong>
+        Click <em>Install Generation</em> in the Pinokio sidebar to install MLX + PyTorch/Diffusers,
+        then reload. You can still browse Models or start downloads.
+      </div>
+
+      <!-- no usable models -->
+      <div class="banner info" x-show="selectableGenerationModels.length === 0">
+        No models ready yet. <a href="#" @click.prevent="tab='models'">Download</a> a local model
+        (start with <strong>Lance 3B MLX</strong> on a 16 or 24 GB Mac).
+      </div>
+
+      <div class="gen-grid">
+        <!-- left: controls -->
+        <div class="gen-controls card">
+          <div class="generation-filters" aria-label="Filter generation models">
+            <label class="field"><span>Capability</span>
+              <select x-model="genFilters.capability" @change="onGenerationFilterChange()">
+                <option value="all">Any mode</option>
+                <option value="txt2video">Text → Video</option>
+                <option value="img2video">Image → Video</option>
+                <option value="video2video">Video → Video</option>
+              </select>
+            </label>
+            <label class="field"><span>Min duration</span>
+              <select x-model.number="genFilters.minDuration" @change="onGenerationFilterChange()">
+                <option :value="0">Any</option>
+                <option :value="5">5 sec</option>
+                <option :value="10">10 sec</option>
+              </select>
+            </label>
+            <label class="field"><span>Resolution</span>
+              <select x-model="genFilters.resolution" @change="onGenerationFilterChange()">
+                <option value="all">Any</option>
+                <template x-for="value in generationResolutionOptions" :key="value">
+                  <option :value="value" x-text="value"></option>
+                </template>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Model</span>
+            <select x-model="gen.repo" @change="onModelChange()">
+              <template x-for="group in generationModelGroups" :key="group.id">
+                <optgroup :label="group.label">
+                  <template x-for="m in group.models" :key="m.repo">
+                    <option :value="m.repo" x-text="modelOptionLabel(m)"></option>
+                  </template>
+                </optgroup>
+              </template>
+            </select>
+          </label>
+          <div class="model-source-note" x-show="selectedModel" x-cloak>
+            <span class="model-source-badge local">Local</span>
+            <span>Runs on this Mac</span>
+          </div>
+          <p class="hint" x-show="generationModels.length === 0">No ready model matches these filters.</p>
+
+          <div class="field">
+            <span>Mode</span>
+            <div class="seg">
+              <template x-for="cap in selectedCapabilities" :key="cap">
+                <button type="button" :class="{active: gen.mode===cap}" @click="gen.mode=cap"
+                        x-text="modeLabel(cap)"></button>
+              </template>
+            </div>
+          </div>
+
+          <!-- input file for img2video / video2video -->
+          <div class="field" x-show="gen.mode !== 'txt2video'">
+            <span x-text="gen.mode === 'img2video' ? 'Input image' : 'Input video'"></span>
+            <input type="file" :accept="gen.mode === 'img2video' ? 'image/*' : 'video/*'"
+                   @change="onFile($event)" />
+            <div class="preview" x-show="gen.inputUrl">
+              <template x-if="gen.mode === 'img2video'">
+                <img :src="gen.inputUrl" alt="input" />
+              </template>
+              <template x-if="gen.mode === 'video2video'">
+                <video :src="gen.inputUrl" muted controls playsinline></video>
+              </template>
+              <span class="preview-name" x-text="gen.inputName"></span>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>Prompt</span>
+            <textarea x-model="gen.prompt" rows="4"
+                      placeholder="A cinematic shot of…"></textarea>
+            <button class="link-btn" type="button" @click="randomPrompt()">🎲 random sample</button>
+          </label>
+
+          <label class="field" x-show="selectedModel?.engine !== 'mlx-lance'">
+            <span>Negative prompt <small>(optional)</small></span>
+            <textarea x-model="gen.negativePrompt" rows="2"
+                      placeholder="blurry, low quality, distorted"></textarea>
+          </label>
+          <p class="hint" x-show="selectedModel?.engine === 'mlx-lance'" x-cloak>
+            Lance MLX uses its validated unconditional-guidance path and does not accept a separate negative prompt.
+          </p>
+
+          <details class="advanced-controls">
+            <summary>Advanced local controls</summary>
+          <div class="grid2">
+            <label class="field"><span>Frames</span>
+              <input type="number" x-model.number="gen.frames" min="9" :step="modelFrameBase(selectedModel)" /></label>
+            <label class="field"><span>FPS</span>
+              <input type="number" x-model.number="gen.fps" min="1" max="60" /></label>
+            <label class="field"><span>Steps</span>
+              <input type="number" x-model.number="gen.steps" min="1" max="100" /></label>
+            <label class="field"><span>Guidance</span>
+              <input type="number" x-model.number="gen.guidance" step="0.5" min="0" /></label>
+            <label class="field" x-show="selectedModel?.family !== 'cogvideox'"><span>Width</span>
+              <input type="number" x-model.number="gen.width" step="16" /></label>
+            <label class="field" x-show="selectedModel?.family !== 'cogvideox'"><span>Height</span>
+              <input type="number" x-model.number="gen.height" step="16" /></label>
+            <label class="field"><span>Seed <small>(-1 = random)</small></span>
+              <input type="number" x-model.number="gen.seed" /></label>
+            <label class="field" x-show="gen.mode === 'video2video'"><span>Strength</span>
+              <input type="number" x-model.number="gen.strength" step="0.05" min="0" max="1" /></label>
+          </div>
+          </details>
+
+          <button class="primary big" :disabled="!canSubmit"
+                  @click="submitGenerate()">
+            <span x-show="!gen.submitting">Generate video</span>
+            <span x-show="gen.submitting">Submitting…</span>
+          </button>
+          <p class="hint" x-show="!canSubmit" x-text="submitHint" x-cloak></p>
+          <p class="hint" x-show="canSubmit" x-text="frameHint()" x-cloak></p>
+        </div>
+
+        <!-- right: outputs -->
+        <div class="gen-output">
+          <div class="output-head">
+            <h3>Outputs</h3>
+            <button class="link-btn" @click="openOutputsFolder()" x-show="genJobs.length" title="Open the folder with every generated clip in Finder">📂 outputs folder</button>
+            <button class="link-btn" @click="clearHistory()" x-show="genJobs.length">clear history</button>
+          </div>
+          <div class="empty" x-show="genJobs.length === 0">
+            <strong>No clips yet.</strong>
+            Set a prompt and hit <em>Generate video</em> — finished clips collect here
+            with an inline player, plus download, reveal, and delete. The first run
+            loads the model into memory, so expect a wait.
+          </div>
+          <template x-for="j in genJobs" :key="j.id">
+            <div class="job card">
+              <div class="job-top">
+                <span class="pill" :class="j.state" x-text="jobStageLabel(j)"></span>
+                <span class="mode-tag" x-text="j.mode"></span>
+                <span class="mode-tag" x-show="j.queue_position" x-text="'queue #' + j.queue_position"></span>
+                <span class="spacer"></span>
+                <button class="link-btn" x-show="j.state==='running' || j.state==='queued'"
+                        @click="cancelJob(j.id)">cancel</button>
+                <button class="link-btn" x-show="j.state==='done' || j.state==='error' || j.state==='cancelled'"
+                        @click="reuseJob(j)">reuse settings</button>
+              </div>
+              <div class="job-prompt" x-text="j.params?.prompt || '(no prompt)'"></div>
+
+              <div class="progress" x-show="j.state==='running' || j.state==='queued'">
+                <div class="bar" :style="`width:${Math.round((j.progress||0)*100)}%`"></div>
+                <span class="progress-label"
+                      x-text="`${Math.round((j.progress||0)*100)}%${j.total_steps ? ' · step ' + j.current_step + '/' + j.total_steps : ''}${j.duration_seconds != null ? ' · ' + Math.round(j.duration_seconds) + 's' : ''}`"></span>
+              </div>
+
+              <video x-show="j.state==='done' && j.output_url" controls loop
+                     :src="j.output_url + '?t=' + j.id"></video>
+
+              <div class="job-err" x-show="j.state==='error'">
+                <strong>Generation failed.</strong>
+                <details><summary>Technical details</summary><span x-text="j.error"></span></details>
+              </div>
+
+              <div class="job-meta" x-show="j.state==='done'">
+                <span x-show="j.resolved_seed != null" x-text="'seed ' + j.resolved_seed"></span>
+                <span x-show="j.media_info?.width" x-text="j.media_info.width + '×' + j.media_info.height"></span>
+                <span x-show="j.media_info?.fps" x-text="j.media_info.fps + ' FPS · ' + j.media_info.frames + ' frames'"></span>
+                <span x-show="j.media_info?.duration_s" x-text="j.media_info.duration_s + 's'"></span>
+                <span x-show="j.media_info?.codec" x-text="j.media_info.codec + ' · ' + j.media_info.pixel_format"></span>
+                <span x-show="j.media_info?.size_bytes" x-text="fmtBytes(j.media_info.size_bytes)"></span>
+                <a class="link-accent" :href="j.output_url" :download="j.id + '.mp4'">download</a>
+                <button class="link-btn" x-show="j.output_path" @click="revealInFolder(j.output_path)"
+                        title="Show this clip in Finder">📂 reveal</button>
+                <button class="link-btn" :class="{ 'is-armed': deleteArmed === j.id }"
+                        @click="deleteGeneration(j)" title="Delete this clip and its file">
+                  <span x-show="deleteArmed !== j.id">🗑 delete</span>
+                  <span x-show="deleteArmed === j.id" x-cloak>click again</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <section class="storage-policy-card" x-show="storagePolicy.loaded" x-cloak>
+            <div class="storage-policy-head">
+              <div><span class="storage-policy-kicker">Local backup protection</span><h3>Automatic output cleanup</h3><p>Generated videos are temporary local backups. Models, source uploads, settings, and active jobs are never touched.</p></div>
+              <span class="storage-policy-meter" :class="{'is-over': storagePolicy.over_limit}"><strong x-text="fmtBytes(storagePolicy.used_bytes || 0)"></strong><span x-text="'of ' + storagePolicy.max_gb + ' GB'"></span></span>
+            </div>
+            <div class="storage-policy-controls">
+              <label class="storage-policy-toggle"><input type="checkbox" x-model="storagePolicy.enabled" /><span>Automatic cleanup</span></label>
+              <label class="storage-policy-field"><span>Keep for</span><select x-model.number="storagePolicy.retention_days"><option :value="1">1 day</option><option :value="3">3 days</option><option :value="7">7 days</option><option :value="30">30 days</option><option :value="90">90 days</option></select></label>
+              <label class="storage-policy-field"><span>Storage cap</span><div class="storage-policy-number"><input type="number" min="1" max="1000" step="1" x-model.number="storagePolicy.max_gb" /><span>GB</span></div></label>
+              <div class="storage-policy-actions"><button class="ghost" :disabled="storagePolicy.busy" @click="cleanStoragePolicyNow()">Clean now</button><button class="primary" :disabled="storagePolicy.busy" @click="saveStoragePolicy()" x-text="storagePolicy.busy ? 'Saving…' : 'Save policy'"></button></div>
+            </div>
+            <p class="storage-policy-note" x-text="storagePolicy.message || 'Cleanup runs hourly and deletes the oldest completed clips first when the cap is reached.'"></p>
+          </section>
+
+          <!-- Disk usage + prune (needs the latest backend; hidden until it responds).
+               Video files are large, so this is high-value housekeeping. -->
+          <div class="output-disk" x-show="outputStats.loaded && outputStats.count > 0" x-cloak>
+            <span class="output-disk-info">
+              💾 <span x-text="outputStats.count"></span> clip<span x-show="outputStats.count !== 1">s</span>
+              · <span x-text="outputSizeLabel"></span> on disk
+            </span>
+            <span class="output-disk-actions" x-show="outputStats.count > 50">
+              <button class="link-btn" :class="{ 'is-armed': pruneArmed === 'keep50' }" @click="pruneOutputs('keep50')"
+                      title="Delete all but the newest 50 clips">
+                <span x-show="pruneArmed !== 'keep50'">🧹 keep newest 50</span>
+                <span x-show="pruneArmed === 'keep50'" x-cloak>click again</span>
+              </button>
+              <button class="link-btn" :class="{ 'is-armed': pruneArmed === 'old30' }" @click="pruneOutputs('old30')"
+                      title="Delete clips older than 30 days">
+                <span x-show="pruneArmed !== 'old30'">delete &gt; 30 days</span>
+                <span x-show="pruneArmed === 'old30'" x-cloak>click again</span>
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- diagnostics -->
+      <details class="diag card" x-show="(diag.packages || []).length">
+        <summary>Engine diagnostics <small x-text="`(${diag.ready_count}/${diag.total_engines} engines ready)`"></small></summary>
+        <ul class="diag-list">
+          <template x-for="p in (diag.packages || [])" :key="p.package">
+            <li :class="p.installed ? 'ok' : 'missing'">
+              <span x-text="p.installed ? '✓' : '✗'"></span>
+              <strong x-text="p.package"></strong>
+              <small x-text="p.role"></small>
+              <em x-show="p.version" x-text="p.version"></em>
+            </li>
+          </template>
+        </ul>
+      </details>
+    </section>
+
+    <!-- ─────────────── MODELS ─────────────── -->
+    <section x-show="tab==='models'" class="pane models-page" x-cloak>
+
+      <header class="models-hero">
+        <div class="models-hero-copy">
+          <span class="models-eyebrow">Motion model library</span>
+          <h1>Choose a family.<br />Then choose its character.</h1>
+          <p>Compare generation modes, clip length, resolution, download size, and memory before committing to a model.</p>
+        </div>
+        <div class="machine-summary">
+          <span>Your Mac</span>
+          <strong x-text="system.chip || 'Apple Silicon'"></strong>
+          <small><span x-text="ramGb"></span> GB planning budget</small>
+        </div>
+      </header>
+
+      <div class="model-commandbar">
+        <label class="model-search-wrap">
+          <span class="model-search-icon" aria-hidden="true">⌕</span>
+          <input type="search" class="library-search" x-model="modelFilters.search"
+                 placeholder="Search a family, model, use case, or repository" />
+        </label>
+        <div class="model-command-actions">
+          <span class="model-result-count" x-text="filteredModelTotalCount + ' of ' + models.length + ' models'"></span>
+          <button class="model-filter-button" :class="{active: advancedFiltersOpen || hasActiveFilters}"
+                  @click="advancedFiltersOpen=!advancedFiltersOpen">Filters <span x-text="advancedFiltersOpen ? '−' : '+'"></span></button>
+        </div>
+        <div class="model-quick-filters">
+          <button class="model-quick-chip" :class="{active: isStatusFiltered('cached')}" @click="toggleStatusFilter('cached')">Downloaded</button>
+          <button class="model-quick-chip" :class="{active: modelFilters.fitLevel==='ok'}" @click="modelFilters.fitLevel=modelFilters.fitLevel==='ok'?'all':'ok'">Fits comfortably</button>
+          <template x-for="c in availableCapabilities" :key="c">
+            <button class="model-quick-chip" :class="{active: isCapFiltered(c)}" @click="toggleCapabilityFilter(c)" x-text="capabilityLabel(c)"></button>
+          </template>
+          <button class="clear-filter-link" x-show="hasActiveFilters" @click="clearAllFilters()">Clear filters</button>
+        </div>
+      </div>
+
+      <section class="model-advanced" x-show="advancedFiltersOpen" x-cloak>
+        <div class="advanced-grid">
+          <div class="advanced-block">
+            <div class="advanced-label">Plan for memory</div>
+            <div class="compact-device-line"><strong x-text="ramGb + ' GB'"></strong> unified memory</div>
+            <input class="ram-slider" type="range" min="8" max="512" step="1"
+                   :value="ramGb" @input="setRam($event.target.value)" aria-label="RAM budget GB" />
+            <div class="compact-ram-tiers">
+              <template x-for="t in ramTiers" :key="t">
+                <button class="model-quick-chip" :class="{active: ramGb===t}" @click="setRam(t)" x-text="t + ' GB'"></button>
+              </template>
+            </div>
+            <button class="clear-filter-link reset-machine" x-show="system.unified_memory_gb && !ramIsDetected"
+                    @click="resetRamToDetected()">Use detected Mac (<span x-text="system.unified_memory_gb"></span> GB)</button>
+          </div>
+          <div class="advanced-block">
+            <div class="advanced-label">Family</div>
+            <div class="advanced-chip-row">
+              <template x-for="fam in availableFamilies" :key="fam.id">
+                <button class="model-quick-chip" :class="{active: isFamilyFiltered(fam.id)}" @click="toggleFamilyFilter(fam.id)" x-text="fam.label"></button>
+              </template>
+            </div>
+            <select x-model="modelFilters.sortBy" class="library-sort">
+              <option value="default">Sort variants by download size</option>
+              <option value="name">Sort variants by name</option>
+              <option value="size-desc">Largest download first</option>
+            </select>
+          </div>
+          <div class="advanced-block">
+            <div class="advanced-label">Memory fit</div>
+            <div class="advanced-chip-row">
+              <button class="model-quick-chip" :class="{active: modelFilters.fitLevel==='all'}" @click="modelFilters.fitLevel='all'">All</button>
+              <button class="model-quick-chip" :class="{active: modelFilters.fitLevel==='ok'}" @click="modelFilters.fitLevel='ok'">Comfortable</button>
+              <button class="model-quick-chip" :class="{active: modelFilters.fitLevel==='tight'}" @click="modelFilters.fitLevel='tight'">Tight</button>
+              <button class="model-quick-chip" :class="{active: modelFilters.fitLevel==='over'}" @click="modelFilters.fitLevel='over'">Over budget</button>
+            </div>
+            <p class="model-terms">Memory estimates include a practical loading floor. Clip length, resolution, and other open apps still affect real usage.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="library-empty" x-show="filteredModelTotalCount===0 && models.length>0">
+        <span class="empty-orbit">0</span>
+        <strong>No families match this view.</strong>
+        <p>Clear one or more filters to bring the catalog back.</p>
+        <button class="ghost" @click="clearAllFilters()">Clear all filters</button>
+      </div>
+
+      <section class="family-library" x-show="filteredModelTotalCount>0">
+        <div class="family-library-heading">
+          <div><span class="models-eyebrow">Private local generation</span><h2>Available models</h2></div>
+          <p>Every model runs on this Mac after its weights are downloaded.</p>
+        </div>
+        <div class="model-lanes">
+          <template x-for="lane in visibleModelLanes" :key="lane.id">
+            <section class="model-lane" :class="'model-lane-' + lane.id">
+              <header class="model-lane-head">
+                <div><span class="models-eyebrow" x-text="lane.eyebrow"></span><h2 x-text="lane.label"></h2></div>
+                <p x-text="lane.summary"></p>
+              </header>
+              <div class="family-stack">
+          <template x-for="family in lane.families" :key="family.id">
+            <article class="family-panel"
+                     :class="{'is-open': !isFamilyCollapsed(family.id)}"
+                     :style="familyStyle(family)">
+              <button class="family-panel-trigger" @click="toggleFamilyCollapsed(family.id)">
+                <span class="family-monogram" x-text="family.monogram || family.label.slice(0, 3)"></span>
+                <span class="family-panel-copy">
+                  <span class="family-title-line">
+                    <strong x-text="family.label"></strong>
+                    <span class="family-recommended" x-show="family.id==='lance-mlx'">16 / 24 GB pick</span>
+                    <span class="family-cached" x-show="family.cachedCount" x-text="family.cachedCount + ' downloaded'"></span>
+                  </span>
+                  <span class="family-summary" x-text="family.summary"></span>
+                  <span class="family-facts">
+                    <span x-text="family.models.length + (family.models.length===1 ? ' variant' : ' variants')"></span>
+                    <span x-text="familyModeSummary(family)"></span>
+                    <span x-text="familyResolutionSummary(family)"></span>
+                    <span x-text="familyDurationSummary(family)"></span>
+                    <span x-text="familySizeSummary(family) + ' download'"></span>
+                    <span x-text="familyRamSummary(family) + ' RAM'"></span>
+                    <span x-text="family.models.some((m) => m.engine?.startsWith('mlx')) ? 'Native MLX' : 'PyTorch · MPS'"></span>
+                  </span>
+                </span>
+                <span class="family-chevron" x-text="isFamilyCollapsed(family.id) ? '+' : '−'"></span>
+              </button>
+
+              <div class="family-panel-body" x-show="!isFamilyCollapsed(family.id)" x-cloak>
+                <div class="family-guidance"><span>Family notes</span><p x-text="family.how_to_use"></p></div>
+                <div class="variant-table-head">
+                  <span>Variant and modes</span><span>Clip profile</span>
+                  <span>Download</span><span>Memory</span><span></span>
+                </div>
+                <div class="variant-list">
+                  <template x-for="m in family.models" :key="m.repo">
+                    <article class="variant-row" :class="modelRowClass(m)">
+                      <div class="variant-identity">
+                        <div class="variant-title-line">
+                          <h3 x-text="m.variant_label || m.label"></h3>
+                          <span class="variant-source local">Local</span>
+                          <span class="variant-source mlx" x-show="m.engine?.startsWith('mlx')">MLX</span>
+                          <span class="variant-role" x-text="m.role" x-show="m.role"></span>
+                          <span class="gated" x-show="m.gated">Gated</span>
+                        </div>
+                        <div class="variant-capabilities">
+                          <template x-for="c in (m.capabilities || [])" :key="c"><span x-text="capabilityLabel(c)"></span></template>
+                        </div>
+                      </div>
+                      <div class="variant-spec" data-label="Clip profile">
+                        <strong x-text="modelResolution(m)"></strong><small x-text="modelClipProfile(m)"></small>
+                      </div>
+                      <div class="variant-spec" data-label="Download">
+                        <div><strong x-text="formatGb(m.size_gb)"></strong><small x-text="cacheChipLabel(m.cache.state)"></small></div>
+                      </div>
+                      <div class="variant-spec" data-label="Memory">
+                        <div><strong x-text="m.min_unified_memory_gb + ' GB+'"></strong>
+                          <span class="fit-dot" :class="'fit-' + fitFor(m.min_unified_memory_gb).state"
+                                :title="fitFor(m.min_unified_memory_gb).hint" x-text="fitChipLabel(fitFor(m.min_unified_memory_gb))"></span></div>
+                      </div>
+                      <div class="variant-action">
+                        <div>
+                          <button class="primary" x-show="m.cache.state!=='cached' && !m.active_download" @click="startDownload(m.repo)">Download</button>
+                          <button class="ghost" x-show="m.active_download" @click="cancelDownload(m.active_download.id)">Cancel</button>
+                          <button class="primary" x-show="m.cache.state==='cached'" @click="useInGenerate(m.repo)">Use model</button>
+                        </div>
+                      </div>
+                      <div class="variant-progress" x-show="m.active_download">
+                        <div class="progress"><div class="bar" :style="`width:${Math.round(m.active_download?.percent||0)}%`"></div></div>
+                        <small x-text="`${Math.round(m.active_download?.percent||0)}% · ${fmtBytes(m.active_download?.bytes_done)} / ${fmtBytes(m.active_download?.bytes_total)}`"></small>
+                      </div>
+                      <button class="variant-details-toggle" @click="toggleModelExpanded(m.repo)"
+                              x-text="isModelExpanded(m.repo) ? 'Hide details' : 'Details'"></button>
+                      <div class="variant-details" x-show="isModelExpanded(m.repo)" x-cloak>
+                        <div class="variant-details-grid">
+                          <div><span>Best for</span><p x-text="m.best_for"></p></div>
+                          <div><span>Runtime</span><p><strong x-text="modelRuntimeLabel(m)"></strong><br /><small x-text="m.recommended_hardware"></small></p></div>
+                          <div><span>Speed and limits</span><p><strong x-text="m.expected_speed"></strong><br /><small x-text="'Up to ' + m.max_frames + ' frames / ' + m.max_duration_s + ' sec · ' + (m.resolutions || []).join(', ')"></small></p></div>
+                          <div><span>License</span><p><a class="link-accent" :href="m.license_url" target="_blank" rel="noopener" x-text="m.license_name"></a><br /><small x-text="m.commercial_use"></small></p></div>
+                        </div>
+                        <ul class="use-case-list" x-show="m.use_cases && m.use_cases.length">
+                          <template x-for="u in m.use_cases" :key="u.text"><li :class="'use-case-' + u.kind"><span x-text="useCaseIcon(u.kind)"></span><span x-text="u.text"></span></li></template>
+                        </ul>
+                        <div class="variant-readiness">
+                          <span class="engine-ready" x-show="m.cache.state==='cached' && isModelReady(m.repo)">Engine ready</span>
+                          <span class="engine-missing" x-show="m.cache.state==='cached' && !isModelReady(m.repo)"
+                                :title="'Missing: ' + (modelMissingDeps(m.repo)||[]).join(', ')">Generation engine needs installation</span>
+                          <code x-text="m.repo"></code>
+                          <button class="link-btn" x-show="m.cache.state==='cached' && m.cache.path" @click="revealInFolder(m.cache.path)">Reveal in Finder</button>
+                        </div>
+                      </div>
+                    </article>
+                  </template>
+                </div>
+              </div>
+            </article>
+          </template>
+              </div>
+            </section>
+          </template>
+        </div>
+      </section>
+    </section>
+
+    <!-- ─────────────── DOWNLOADS ─────────────── -->
+    <section x-show="tab==='downloads'" class="pane" x-cloak>
+      <div class="output-head">
+        <h3>Downloads</h3>
+        <button class="link-btn" @click="clearDownloads()" x-show="downloads.length">clear finished</button>
+      </div>
+      <div class="empty" x-show="downloads.length === 0">No downloads yet.</div>
+      <template x-for="d in downloads" :key="d.id">
+        <div class="dl card">
+          <div class="job-top">
+            <span class="pill" :class="d.state" x-text="d.state"></span>
+            <strong x-text="d.repo"></strong>
+            <span class="spacer"></span>
+            <button class="link-btn" x-show="d.state==='running' || d.state==='queued'"
+                    @click="cancelDownload(d.id)">cancel</button>
+          </div>
+          <div class="progress" x-show="d.state==='running' || d.state==='queued'">
+            <div class="bar" :style="`width:${Math.round(d.percent||0)}%`"></div>
+          </div>
+          <small x-text="`${Math.round(d.percent||0)}% · ${fmtBytes(d.bytes_done)} / ${fmtBytes(d.bytes_total)} · ${fmtBytes(d.speed_bps)}/s`"></small>
+          <div class="job-err" x-show="d.state==='error'" x-text="d.error"></div>
+        </div>
+      </template>
+    </section>
+
+    <!-- ─────────────── SETTINGS ─────────────── -->
+    <section x-show="tab==='settings'" class="pane" x-cloak>
+      <header class="section-head">
+        <span class="workspace-kicker">App configuration</span>
+        <h1>Settings</h1>
+        <p>Manage model access and the local API from one place.</p>
+      </header>
+      <div class="settings-grid">
+      <div class="card settings-card auto-update-card memory-policy-card" x-show="memoryPolicy.loaded" x-cloak>
+        <div class="auto-update-head"><div><h3>Model memory</h3><p class="hint">Keep the most recent local MLX or Diffusers video pipeline warm, or return unified memory after Video Studio becomes idle.</p></div><span class="auto-update-state" :class="memoryPolicy.busy ? 'checking' : (memoryPolicy.loaded_pipeline ? 'available' : 'succeeded')" x-text="memoryPolicy.busy ? 'working' : (memoryPolicy.loaded_pipeline ? 'pipeline loaded' : 'memory clear')"></span></div>
+        <fieldset class="auto-update-mode-group" @change="markMemoryPolicyDirty()">
+          <legend>Performance mode</legend>
+          <div class="auto-update-mode-options memory-policy-options">
+            <label class="auto-update-mode-option" :class="{active:memoryPolicy.draft.mode==='performance'}"><input type="radio" name="memory-policy-mode" value="performance" x-model="memoryPolicy.draft.mode"><span><strong>Performance<template x-if="memoryPolicy.default_mode==='performance'"><span> · default</span></template></strong><small>Keep the latest local pipeline warm for a faster repeat render.</small></span></label>
+            <label class="auto-update-mode-option" :class="{active:memoryPolicy.draft.mode==='balanced'}"><input type="radio" name="memory-policy-mode" value="balanced" x-model="memoryPolicy.draft.mode"><span><strong>Balanced<template x-if="memoryPolicy.default_mode==='balanced'"><span> · default</span></template></strong><small>Unload after 10 minutes without a local render.</small></span></label>
+            <label class="auto-update-mode-option" :class="{active:memoryPolicy.draft.mode==='memory_saver'}"><input type="radio" name="memory-policy-mode" value="memory_saver" x-model="memoryPolicy.draft.mode"><span><strong>Memory Saver<template x-if="memoryPolicy.default_mode==='memory_saver'"><span> · default</span></template></strong><small>Unload after 2 idle minutes.</small></span></label>
+            <label class="auto-update-mode-option" :class="{active:memoryPolicy.draft.mode==='immediate'}"><input type="radio" name="memory-policy-mode" value="immediate" x-model="memoryPolicy.draft.mode"><span><strong>Immediate<template x-if="memoryPolicy.default_mode==='immediate'"><span> · default</span></template></strong><small>Unload after every completed local render.</small></span></label>
+          </div>
+        </fieldset>
+        <div class="auto-update-actions"><button class="primary" @click="saveMemoryPolicy()" :disabled="memoryPolicy.busy || !memoryPolicy.dirty" x-text="memoryPolicy.busy ? 'Working…' : 'Save mode'"></button><span class="auto-update-unsaved" x-show="memoryPolicy.dirty">Unsaved changes</span><span class="auto-update-action-spacer"></span><button class="ghost" @click="releaseMemory()" :disabled="memoryPolicy.busy">Release Memory / Unload Model</button></div>
+        <p class="auto-update-message" x-show="memoryPolicy.message" :class="memoryPolicy.messageKind" x-text="memoryPolicy.message"></p>
+        <div class="auto-update-status-grid"><div><span>Current mode</span><strong x-text="memoryPolicy.mode.replace('_',' ')"></strong></div><div><span>Local pipeline</span><strong x-text="memoryPipelineLabel()"></strong></div><div><span>Next release</span><strong x-text="memoryPolicy.next_release_at ? memoryPolicyTime(memoryPolicy.next_release_at) : (memoryPolicy.mode==='performance' ? 'Manual only' : 'After next local render')"></strong></div><div><span>Last release</span><strong x-text="memoryPolicyTime(memoryPolicy.last_release_at)"></strong></div><div><span>Release count</span><strong x-text="memoryPolicy.release_count || 0"></strong></div><div><span>Activity Monitor</span><strong x-text="memoryPolicy.process_title || 'Video Studio Mac'"></strong></div></div>
+        <p class="hint">Downloaded weights and output videos stay on disk; failed or cancelled local renders still release their pipeline for safety.</p>
+      </div>
+      <div class="card settings-card auto-update-card" x-show="autoUpdate.loaded" x-cloak>
+        <div class="auto-update-head"><div><h3>Automatic updates</h3><p class="hint">Optional, recoverable updates that wait for local video jobs and model downloads to finish.</p></div><span class="auto-update-state" :class="autoUpdate.state" x-text="autoUpdate.state"></span></div>
+        <fieldset class="auto-update-mode-group" @change="markAutoUpdateDirty()">
+          <legend>Choose how updates work</legend>
+          <div class="auto-update-mode-options">
+            <label class="auto-update-mode-option" :class="{active:autoUpdate.draft.mode==='off'}"><input type="radio" name="auto-update-mode" value="off" x-model="autoUpdate.draft.mode"><span><strong>Off</strong><small>Update manually from the Pinokio sidebar.</small></span></label>
+            <label class="auto-update-mode-option" :class="{active:autoUpdate.draft.mode==='notify'}"><input type="radio" name="auto-update-mode" value="notify" x-model="autoUpdate.draft.mode"><span><strong>Notify only</strong><small>Check on schedule and tell me when a release is ready.</small></span></label>
+            <label class="auto-update-mode-option" :class="{active:autoUpdate.draft.mode==='auto'}"><input type="radio" name="auto-update-mode" value="auto" x-model="autoUpdate.draft.mode"><span><strong>Automatic</strong><small>Download, install, verify, and recover safely.</small></span></label>
+          </div>
+        </fieldset>
+        <div class="auto-update-schedule" :class="{disabled:autoUpdate.draft.mode==='off'}">
+          <div class="auto-update-schedule-copy"><strong>Schedule</strong><small x-text="autoUpdate.draft.mode==='off' ? 'Choose Notify only or Automatic to schedule checks.' : 'Times use this Mac\'s local clock.'"></small></div>
+          <div class="auto-update-schedule-controls">
+            <label><span>Frequency</span><select x-model="autoUpdate.draft.frequency" @change="markAutoUpdateDirty()" :disabled="autoUpdate.draft.mode==='off'"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
+            <label><span>Maintenance time</span><select x-model.number="autoUpdate.draft.maintenance_hour" @change="markAutoUpdateDirty()" :disabled="autoUpdate.draft.mode==='off'"><template x-for="hour in 24" :key="hour-1"><option :value="hour-1" x-text="String(hour-1).padStart(2,'0') + ':00'"></option></template></select></label>
+          </div>
+          <label class="auto-update-toggle"><input type="checkbox" x-model="autoUpdate.draft.idle_only" @change="markAutoUpdateDirty()" :disabled="autoUpdate.draft.mode==='off'"><span><strong>Wait until Video Studio is idle</strong><small>Recommended. Active local renders are never interrupted.</small></span></label>
+        </div>
+        <div class="auto-update-actions"><button class="primary" @click="saveAutoUpdate()" :disabled="autoUpdate.busy || !autoUpdate.dirty" x-text="autoUpdate.busy ? 'Saving…' : 'Save changes'"></button><span class="auto-update-unsaved" x-show="autoUpdate.dirty">Unsaved changes</span><span class="auto-update-action-spacer"></span><button class="ghost" @click="autoUpdateAction('check')" :disabled="autoUpdate.busy">Check now</button><button class="ghost" x-show="autoUpdate.update_available" @click="autoUpdateAction('update')" :disabled="autoUpdate.busy">Update now</button><button class="ghost" x-show="autoUpdate.update_available" @click="autoUpdateAction('update',{after_current:true})" :disabled="autoUpdate.busy">Update after current work</button><button class="ghost" x-show="autoUpdate.state==='failed'" @click="autoUpdateAction('retry')" :disabled="autoUpdate.busy">Retry</button></div>
+        <p class="auto-update-message" x-show="autoUpdate.message" :class="autoUpdate.messageKind" x-text="autoUpdate.message"></p>
+        <div class="auto-update-status-grid"><div><span>Installed</span><strong x-text="autoUpdate.installed_version||'—'"></strong></div><div><span>Latest known</span><strong x-text="autoUpdate.latest_version||'Not checked'"></strong></div><div><span>Last checked</span><strong x-text="autoUpdateTime(autoUpdate.last_checked)"></strong></div><div><span>Next check</span><strong x-text="autoUpdate.settings.mode==='off'?'Disabled':autoUpdateTime(autoUpdate.next_check)"></strong></div><div><span>Scheduler</span><strong x-text="autoUpdate.scheduler.installed?'Active and verified':'Not installed'"></strong></div><div><span>Last result</span><strong x-text="autoUpdate.last_update_result||'No update attempted'"></strong></div></div>
+        <p class="auto-update-defer" x-show="autoUpdate.defer_reason"><strong>Deferred:</strong> <span x-text="autoUpdate.defer_reason"></span></p><p class="auto-update-defer error" x-show="autoUpdate.rollback"><strong>Rollback:</strong> <span x-text="autoUpdate.rollback"></span></p>
+        <details><summary>Safety details and release notes</summary><p class="hint">The updater requires the expected GitHub remote, <code>main</code>, a clean fast-forward, enough disk space, and an idle app. Dependencies, imports, health, and the exact running version are verified before success.</p><ul x-show="autoUpdate.details?.length"><template x-for="line in autoUpdate.details" :key="line"><li x-text="line"></li></template></ul><a :href="autoUpdate.release_notes_url" target="_blank" rel="noopener">Open release notes ↗</a><p class="hint">Logs: <code>logs/auto_update/</code>. Turning updates Off unloads the schedule immediately.</p></details>
+      </div>
+      <div class="card settings-card">
+        <h3>Hugging Face token</h3>
+        <p class="hint">Needed only for gated repos. Stored locally on this machine.</p>
+        <div class="token-row">
+          <input :type="settings.showToken ? 'text' : 'password'" x-model="settings.tokenInput"
+                 placeholder="hf_…" />
+          <button class="ghost" @click="settings.showToken=!settings.showToken"
+                  x-text="settings.showToken ? 'hide' : 'show'"></button>
+        </div>
+        <div class="settings-actions">
+          <button class="primary" @click="saveToken()" :disabled="settings.busy">Save</button>
+          <button class="ghost" @click="testToken()" :disabled="settings.busy">Test</button>
+          <span class="settings-msg" :class="settings.messageKind" x-text="settings.message"></span>
+        </div>
+        <p class="hint" x-show="settings.hf_token_set">A token is currently saved (<span x-text="settings.hf_token_masked"></span>).</p>
+      </div>
+
+      <div class="card settings-card">
+        <h3>API</h3>
+        <p class="hint">This server exposes a REST API. See the README for JavaScript / Python / curl examples.</p>
+        <p>
+          <a class="link-accent" :href="apiBase + '/docs'" target="_blank">Swagger UI</a> ·
+          <a class="link-accent" :href="apiBase + '/redoc'" target="_blank">ReDoc</a>
+        </p>
+        <p class="hint" x-show="conn.bind_port">Reachable on this machine at <code x-text="'http://localhost:' + conn.bind_port"></code>.</p>
+      </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- toasts -->
+  <div class="toasts">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.kind" x-text="t.text"></div>
+    </template>
+  </div>
+
+  <!-- ── KH auto-update banner ──────────────────────────────────────────────
+       Self-contained (no Alpine coupling). Reads /api/update-status and, if this
+       install is behind or its generation stack is missing, shows a dismissible
+       notice pointing at the one-click Update / Install Generation button in the
+       Pinokio sidebar. Degrades silently if the endpoint isn't present yet
+       (e.g. a running service that hasn't restarted onto the new build). -->
+  <script>
+  (function () {
+    function build(s) {
+      var msg, key, bg, fg;
+      if (s.generation_required && s.generation_ok === false) {
+        key = "kh-gen-missing"; bg = "#f3b562"; fg = "#1a1204";
+        msg = "\u26A0 Generation engine not installed \u2014 the Generate tab won\u2019t work. " +
+              "In the Pinokio sidebar, click Install Generation (or Update).";
+      } else if (s.update_available && s.latest_version) {
+        key = "kh-upd-" + s.latest_version; bg = "#6aa7ff"; fg = "#04122a";
+        msg = "\u2B06 Update available (v" + s.app_version + " \u2192 v" + s.latest_version + "). " +
+              "In the Pinokio sidebar, click Update.";
+      } else { return; }
+      try { if (localStorage.getItem(key) === "1") return; } catch (e) {}
+      var bar = document.createElement("div");
+      bar.style.cssText = "position:sticky;top:0;z-index:99999;display:flex;align-items:center;gap:12px;" +
+        "padding:8px 16px;font:13px/1.4 system-ui,-apple-system,sans-serif;background:" + bg + ";color:" + fg +
+        ";border-bottom:1px solid rgba(0,0,0,.25)";
+      var span = document.createElement("span"); span.style.flex = "1"; span.textContent = msg;
+      var btn = document.createElement("button"); btn.textContent = "\u2715";
+      btn.setAttribute("aria-label", "Dismiss");
+      btn.style.cssText = "background:transparent;border:0;cursor:pointer;font-size:14px;color:inherit;opacity:.7";
+      btn.onclick = function () { try { localStorage.setItem(key, "1"); } catch (e) {} bar.remove(); };
+      bar.appendChild(span); bar.appendChild(btn);
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+    fetch("/api/update-status").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) { if (s) build(s); }).catch(function () {});
+  })();
+  </script>
+</body>
+</html>

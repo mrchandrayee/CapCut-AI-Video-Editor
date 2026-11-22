@@ -5,74 +5,161 @@ const path = require('path')
 const { spawn } = require('child_process')
 const http = require('http')
 
-const BACKEND_PORT = 8765
+// ── Port / path constants ────────────────────────────────────────────────────
+
+const PORT_VIDEOSTUDIO = 47872
+const PORT_VEXYL_TTS = 7700
+const PORT_BACKEND = 8765
 const FRONTEND_PORT = 5173
-const BACKEND_DIR = path.join(__dirname, '..', 'backend')
-const HEALTH_URL = `http://localhost:${BACKEND_PORT}/api/health`
-const STARTUP_TIMEOUT_MS = 30_000
+const STARTUP_TIMEOUT_MS = 60_000
 const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-let backendProcess = null
-let mainWindow = null
+function appRoot() {
+  return app.isPackaged
+    ? path.dirname(app.getAppPath())
+    : path.join(__dirname, '..')
+}
 
-// ── Backend lifecycle ────────────────────────────────────────────────────────
+// ── Service definitions ──────────────────────────────────────────────────────
 
-function startBackend() {
+function serviceConfigs() {
+  const root = appRoot()
+  return [
+    {
+      name: 'videostudio',
+      label: 'Video Engine',
+      port: PORT_VIDEOSTUDIO,
+      cwd: path.join(root, 'engines', 'videostudio'),
+      cmd: path.join(root, 'engines', 'videostudio', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(PORT_VIDEOSTUDIO)],
+      healthUrl: `http://127.0.0.1:${PORT_VIDEOSTUDIO}/api/catalog`,
+    },
+    {
+      name: 'vexyl-tts',
+      label: 'Voice Engine',
+      port: PORT_VEXYL_TTS,
+      cwd: path.join(root, 'engines', 'vexyl-tts'),
+      cmd: path.join(root, 'engines', 'vexyl-tts', 'venv', 'bin', 'python'),
+      args: ['vexyl_tts_server.py'],
+      healthUrl: `http://127.0.0.1:${PORT_VEXYL_TTS}/health`,
+    },
+    {
+      name: 'backend',
+      label: 'Studio Backend',
+      port: PORT_BACKEND,
+      cwd: path.join(root, 'backend'),
+      cmd: path.join(root, 'backend', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(PORT_BACKEND)],
+      healthUrl: `http://127.0.0.1:${PORT_BACKEND}/api/health`,
+    },
+  ]
+}
+
+// ── Process registry ─────────────────────────────────────────────────────────
+
+const processes = {} // name → ChildProcess
+
+function startService(svc) {
   return new Promise((resolve, reject) => {
-    const python = process.platform === 'win32' ? 'python' : 'python3'
-    backendProcess = spawn(python, ['main.py'], {
-      cwd: BACKEND_DIR,
+    if (processes[svc.name]) {
+      processes[svc.name].kill('SIGTERM')
+      processes[svc.name] = null
+    }
+
+    const proc = spawn(svc.cmd, svc.args, {
+      cwd: svc.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
     })
+    processes[svc.name] = proc
 
-    backendProcess.stdout.on('data', (data) => {
-      console.log('[backend]', data.toString().trim())
-    })
-    backendProcess.stderr.on('data', (data) => {
-      console.error('[backend]', data.toString().trim())
-    })
-    backendProcess.on('error', (err) => {
+    proc.stdout.on('data', (d) => console.log(`[${svc.name}]`, d.toString().trim()))
+    proc.stderr.on('data', (d) => console.error(`[${svc.name}]`, d.toString().trim()))
+    proc.on('error', (err) => {
       if (err.code === 'ENOENT') {
-        reject(new Error(`Python not found. Install Python 3.11+ and try again.`))
+        reject(new Error(`${svc.label}: python binary not found at ${svc.cmd}. Run start.sh first.`))
       } else {
         reject(err)
       }
     })
-    backendProcess.on('exit', (code) => {
-      if (code !== null && code !== 0) {
-        console.error(`[backend] Exited with code ${code}`)
-      }
+    proc.on('exit', (code) => {
+      if (code !== null && code !== 0) console.error(`[${svc.name}] Exited with code ${code}`)
     })
 
-    // Poll health endpoint
-    const start = Date.now()
+    // Poll health
+    const started = Date.now()
     const poll = setInterval(() => {
-      if (Date.now() - start > STARTUP_TIMEOUT_MS) {
+      if (Date.now() - started > STARTUP_TIMEOUT_MS) {
         clearInterval(poll)
-        reject(new Error(`Backend did not start within ${STARTUP_TIMEOUT_MS / 1000}s`))
+        reject(new Error(`${svc.label} did not become healthy within ${STARTUP_TIMEOUT_MS / 1000}s`))
         return
       }
-      http.get(HEALTH_URL, (res) => {
-        if (res.statusCode === 200) {
+      http.get(svc.healthUrl, (res) => {
+        if (res.statusCode < 500) {
           clearInterval(poll)
           resolve()
         }
       }).on('error', () => { /* still starting */ })
-    }, 1000)
+    }, 1500)
   })
 }
 
-function stopBackend() {
-  if (!backendProcess) return
-  backendProcess.kill('SIGTERM')
-  setTimeout(() => {
-    if (backendProcess) backendProcess.kill('SIGKILL')
-  }, 3000)
-  backendProcess = null
+function stopAll() {
+  for (const name of Object.keys(processes)) {
+    const proc = processes[name]
+    if (!proc) continue
+    try { proc.kill('SIGTERM') } catch {}
+    setTimeout(() => { try { proc.kill('SIGKILL') } catch {} }, 3000)
+    processes[name] = null
+  }
 }
 
-// ── Window ───────────────────────────────────────────────────────────────────
+// ── Loading screen ───────────────────────────────────────────────────────────
+
+let loadingWindow = null
+
+function showLoadingScreen(configs) {
+  loadingWindow = new BrowserWindow({
+    width: 420,
+    height: 300,
+    frame: false,
+    resizable: false,
+    backgroundColor: '#0f0f0f',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  })
+
+  const rows = configs.map((c) =>
+    `<div id="row-${c.name}" class="row">
+       <span class="icon">⏳</span>
+       <span>Starting ${c.label}…</span>
+     </div>`
+  ).join('')
+
+  loadingWindow.loadURL(`data:text/html,<!DOCTYPE html>
+<html><head><style>
+  body { margin: 0; background: #0f0f0f; color: #eee; font-family: -apple-system, sans-serif;
+         display: flex; flex-direction: column; align-items: center; justify-content: center;
+         height: 100vh; gap: 0; }
+  h2 { font-size: 1.1rem; margin: 0 0 20px; color: #ff4fd8; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 0.9rem; width: 320px; }
+  .icon { width: 20px; text-align: center; }
+</style></head><body>
+  <h2>🎬 Hindi Video Studio</h2>
+  ${rows}
+</body></html>`)
+}
+
+function updateLoadingRow(name, ok) {
+  if (!loadingWindow || loadingWindow.isDestroyed()) return
+  const icon = ok ? '✅' : '❌'
+  loadingWindow.webContents.executeJavaScript(
+    `var r = document.getElementById('row-${name}'); if(r) r.querySelector('.icon').textContent = '${icon}';`
+  ).catch(() => {})
+}
+
+// ── Main window ──────────────────────────────────────────────────────────────
+
+let mainWindow = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -92,17 +179,13 @@ function createWindow() {
 
   const url = IS_DEV
     ? `http://localhost:${FRONTEND_PORT}`
-    : `http://localhost:${BACKEND_PORT}`
+    : `http://localhost:${PORT_BACKEND}`
 
   mainWindow.loadURL(url)
 
-  if (IS_DEV) {
-    mainWindow.webContents.openDevTools()
-  }
+  if (IS_DEV) mainWindow.webContents.openDevTools()
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+  mainWindow.on('closed', () => { mainWindow = null })
 
   buildMenu()
 }
@@ -114,61 +197,29 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
-        {
-          label: 'New Project',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow?.webContents.send('menu:new-project'),
-        },
-        {
-          label: 'Export Video',
-          accelerator: 'CmdOrCtrl+E',
-          click: () => mainWindow?.webContents.send('menu:export'),
-        },
+        { label: 'New Project', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-project') },
+        { label: 'Export Video', accelerator: 'CmdOrCtrl+E', click: () => mainWindow?.webContents.send('menu:export') },
         { type: 'separator' },
         { role: 'quit' },
       ],
     },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' }, { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-      ],
-    },
+    { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
+    { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     {
       label: 'Help',
       submenu: [
         {
           label: 'About Hindi Video Studio',
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              title: 'Hindi Video Studio',
-              message: 'Hindi Video Studio v1.0.0',
-              detail: 'Local Hindi/Hinglish AI Video Production Studio\n\nAll AI processing runs locally. No cloud calls, no API keys required.',
-              type: 'info',
-            })
-          },
+          click: () => dialog.showMessageBox(mainWindow, {
+            title: 'Hindi Video Studio',
+            message: 'Hindi Video Studio v1.0.0',
+            detail: 'Fully self-contained local AI video studio.\nNo cloud calls, no API keys required.\n\nVideo Engine: 47872 | Voice Engine: 7700 | Backend: 8765',
+            type: 'info',
+          }),
         },
         {
           label: 'Open Data Directory',
-          click: () => {
-            const dataDir = require('path').join(require('os').homedir(), '.hindi-video-studio')
-            shell.openPath(dataDir)
-          },
+          click: () => shell.openPath(path.join(require('os').homedir(), '.hindi-video-studio')),
         },
       ],
     },
@@ -177,17 +228,7 @@ function buildMenu() {
   if (process.platform === 'darwin') {
     template.unshift({
       label: app.getName(),
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
+      submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'services' }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }],
     })
   }
 
@@ -209,35 +250,62 @@ ipcMain.handle('open-file-dialog', async (_, opts = {}) => {
   return result
 })
 
+ipcMain.handle('restart-service', async (_, name) => {
+  const configs = serviceConfigs()
+  const svc = configs.find((c) => c.name === name)
+  if (!svc) return { ok: false, error: `Unknown service: ${name}` }
+  try {
+    await startService(svc)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ── App events ───────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  try {
-    console.log('[electron] Starting backend...')
-    await startBackend()
-    console.log('[electron] Backend ready')
-  } catch (err) {
-    const isPortInUse = err.message?.includes('EADDRINUSE') ||
-      err.message?.includes('already running')
-    if (isPortInUse || err.message?.includes('did not start')) {
-      // Try connecting anyway — maybe it's already running
-      console.warn('[electron] Backend startup issue:', err.message)
-      const choice = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Continue', 'Quit'],
-        title: 'Backend Status',
-        message: `Port ${BACKEND_PORT} issue`,
-        detail: `${err.message}\n\nIs the backend already running? Click Continue to connect anyway.`,
-      })
-      if (choice.response === 1) {
-        app.quit()
-        return
+  const configs = serviceConfigs()
+  showLoadingScreen(configs)
+
+  // Start all three services, update loading UI per-service
+  const results = await Promise.allSettled(
+    configs.map(async (svc) => {
+      try {
+        await startService(svc)
+        updateLoadingRow(svc.name, true)
+      } catch (err) {
+        console.error(`[electron] ${svc.label} failed:`, err.message)
+        updateLoadingRow(svc.name, false)
+        throw err
       }
-    } else {
-      await dialog.showErrorBox('Startup Failed', err.message)
+    })
+  )
+
+  const allOk = results.every((r) => r.status === 'fulfilled')
+
+  if (!allOk) {
+    const failed = results
+      .map((r, i) => (r.status === 'rejected' ? configs[i].label : null))
+      .filter(Boolean)
+      .join(', ')
+
+    const choice = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Continue Anyway', 'Quit'],
+      title: 'Some Services Failed',
+      message: `The following services did not start: ${failed}`,
+      detail: 'You can still use features powered by running services. Click Continue to proceed.',
+    })
+    if (choice.response === 1) {
       app.quit()
       return
     }
+  }
+
+  if (loadingWindow && !loadingWindow.isDestroyed()) {
+    loadingWindow.close()
+    loadingWindow = null
   }
 
   createWindow()
@@ -252,9 +320,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  stopBackend()
+  stopAll()
 })
 
 app.on('will-quit', () => {
-  stopBackend()
+  stopAll()
 })

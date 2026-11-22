@@ -5,11 +5,6 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to build (e.g. 2.1.1)'
-        required: false
-        default: '2.1.1'
 
 permissions:
   contents: write
@@ -27,15 +22,17 @@ jobs:
           node-version: '20'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install frontend dependencies
-        run: cd frontend && npm ci
+        working-directory: frontend
+        run: npm install
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        working-directory: frontend
+        run: npm run build
 
-      - name: Build macOS DMG (arm64 + x64)
+      - name: Build macOS DMG
         run: npx electron-builder --mac --arm64 --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,20 +57,22 @@ jobs:
             ### Downloads
             | Platform | File | Notes |
             |---|---|---|
-            | macOS | `.dmg` | Apple Silicon + Intel universal |
-            | Windows | `.exe` | Windows 10/11 64-bit |
-            | Linux | `.deb` | Ubuntu / Debian |
+            | 🍎 macOS | `.dmg` | Apple Silicon + Intel |
+            | 🪟 Windows | `.exe` | Windows 10/11 64-bit |
+            | 🐧 Linux | `.deb` | Ubuntu / Debian |
 
             ### First Run
             ```bash
-            # macOS: if Gatekeeper blocks the app
+            # macOS: Gatekeeper warning fix
             xattr -dr com.apple.quarantine /Applications/Hindi\ Video\ Studio.app
+
+            # Then set up Python engines (one time only)
+            bash start.sh
             ```
 
             ### Requirements
-            - Python 3.10+ (for AI engines)
-            - FFmpeg (`brew install ffmpeg` / `apt install ffmpeg`)
-            - Run `bash start.sh` on first launch to set up Python venvs
+            - Python 3.10+
+            - FFmpeg (`brew install ffmpeg` on macOS)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -89,15 +88,17 @@ jobs:
           node-version: '20'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install frontend dependencies
-        run: cd frontend && npm ci
+        working-directory: frontend
+        run: npm install
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        working-directory: frontend
+        run: npm run build
 
-      - name: Build Windows NSIS installer
+      - name: Build Windows installer
         run: npx electron-builder --win --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -117,7 +118,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── Linux (Debian .deb package) ───────────────────────────────────────────
+  # ── Linux (.deb package) ─────────────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -127,7 +128,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install system dependencies
         run: |
@@ -143,10 +143,12 @@ jobs:
         run: npm install
 
       - name: Install frontend dependencies
-        run: cd frontend && npm install
+        working-directory: frontend
+        run: npm install
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        working-directory: frontend
+        run: npm run build
 
       - name: Build Linux .deb
         run: npx electron-builder --linux deb --x64

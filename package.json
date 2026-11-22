@@ -1,6 +1,6 @@
 {
   "name": "hindi-video-studio",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "Local Hindi/Hinglish AI Video Production Studio — fully offline, no cloud",
   "main": "electron/main.js",
   "author": {
@@ -17,10 +17,10 @@
     "start": "electron .",
     "dev": "concurrently \"cd frontend && npm run dev\" \"sleep 3 && electron .\"",
     "build:frontend": "cd frontend && npm install && npm run build",
-    "build:mac": "npm run build:frontend && electron-builder --mac --arm64 --x64 -c.publish=never",
-    "build:win": "npm run build:frontend && electron-builder --win --x64 -c.publish=never",
-    "build:linux": "npm run build:frontend && electron-builder --linux deb --x64 -c.publish=never",
-    "build:all": "npm run build:frontend && electron-builder --mac --win --linux -c.publish=never",
+    "build:mac": "npm run build:frontend && electron-builder --mac --arm64 --x64 -p never",
+    "build:win": "npm run build:frontend && electron-builder --win --x64 -p never",
+    "build:linux": "npm run build:frontend && electron-builder --linux deb --x64 -p never",
+    "build:all": "npm run build:frontend && electron-builder --mac --win --linux -p never",
     "dist": "npm run build:all"
   },
   "dependencies": {},

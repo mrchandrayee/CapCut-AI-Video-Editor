@@ -62,10 +62,10 @@ jobs:
             ### 🚀 Downloads
             | Platform | File | Architecture |
             |---|---|---|
-            | 🍎 macOS | `DRISHQAN-${{ github.ref_name }}-mac-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
-            | 🍎 macOS | `DRISHQAN-${{ github.ref_name }}-mac-x64.dmg` | Intel Macs |
-            | 🪟 Windows | `DRISHQAN-${{ github.ref_name }}-win-x64.exe` | Windows 10/11 (64-bit) |
-            | 🐧 Linux | `DRISHQAN-${{ github.ref_name }}-linux-amd64.deb` | Ubuntu / Debian |
+            | 🍎 macOS | `DRISHQAN-0.1.1-mac-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
+            | 🍎 macOS | `DRISHQAN-0.1.1-mac-x64.dmg` | Intel Macs |
+            | 🪟 Windows | `DRISHQAN-0.1.1-win-x64.exe` | Windows 10/11 (64-bit) |
+            | 🐧 Linux | `DRISHQAN-0.1.1-linux-amd64.deb` | Ubuntu / Debian |
 
             ---
 

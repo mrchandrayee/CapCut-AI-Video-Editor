@@ -11,7 +11,7 @@ No external services needed, no API keys, no cloud calls — runs locally on you
 On macOS Sequoia & Sonoma, unsigned open-source apps downloaded from the internet are blocked by Apple Gatekeeper with a *"Malware Blocked"* warning.
 
 ### Step 1: Download & Open DMG
-Download `DRISHQAN-0.1.0-mac-arm64.dmg` (for Apple Silicon M1/M2/M3/M4) or `DRISHQAN-0.1.0-mac-x64.dmg` (for Intel) from [Releases](https://github.com/mrchandrayee/CapCut-in-AI-Video-studio/releases). Double-click the DMG to open it.
+Download `DRISHQAN-0.1.1-mac-arm64.dmg` (for Apple Silicon M1/M2/M3/M4) or `DRISHQAN-0.1.1-mac-x64.dmg` (for Intel) from [Releases](https://github.com/mrchandrayee/CapCut-in-AI-Video-studio/releases). Double-click the DMG to open it.
 
 ### Step 2: 1-Click Run Command
 Open **Terminal** and copy-paste this command:

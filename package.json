@@ -1,0 +1,17 @@
+{
+  "name": "hindi-video-studio",
+  "version": "1.0.0",
+  "description": "Local Hindi/Hinglish AI Video Production Studio",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"cd frontend && npm run dev\" \"sleep 3 && electron .\"",
+    "build": "cd frontend && npm run build"
+  },
+  "dependencies": {
+    "electron": "^31.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

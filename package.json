@@ -1,17 +1,126 @@
 {
   "name": "hindi-video-studio",
-  "version": "1.0.0",
-  "description": "Local Hindi/Hinglish AI Video Production Studio",
+  "version": "2.1.1",
+  "description": "Local Hindi/Hinglish AI Video Production Studio — fully offline, no cloud",
   "main": "electron/main.js",
+  "author": {
+    "name": "mrchandrayee",
+    "email": "mrchandrayee@gmail.com",
+    "url": "https://github.com/mrchandrayee"
+  },
+  "homepage": "https://github.com/mrchandrayee/CapCut-AI-Video-Editor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mrchandrayee/CapCut-AI-Video-Editor.git"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"cd frontend && npm run dev\" \"sleep 3 && electron .\"",
-    "build": "cd frontend && npm run build"
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:mac": "npm run build:frontend && electron-builder --mac --arm64 --x64",
+    "build:win": "npm run build:frontend && electron-builder --win --x64",
+    "build:linux": "npm run build:frontend && electron-builder --linux deb --x64",
+    "build:all": "npm run build:frontend && electron-builder --mac --win --linux",
+    "dist": "npm run build:all"
   },
   "dependencies": {
     "electron": "^31.0.0"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mrchandrayee.hindi-video-studio",
+    "productName": "Hindi Video Studio",
+    "copyright": "Copyright © 2025 mrchandrayee",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "engines/**"
+    ],
+    "files": [
+      "electron/**",
+      "backend/**",
+      "engines/**",
+      "frontend/dist/**",
+      "package.json",
+      "!**/node_modules/.cache",
+      "!**/__pycache__",
+      "!**/*.pyc",
+      "!**/venv",
+      "!**/.git"
+    ],
+    "extraResources": [
+      {
+        "from": "engines/",
+        "to": "engines/",
+        "filter": ["**/*", "!**/venv", "!**/__pycache__", "!**/*.pyc"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "icon": "build/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "background": null,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 130, "y": 220, "type": "file" },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Video",
+      "target": [
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "maintainer": "mrchandrayee",
+      "synopsis": "Local Hindi/Hinglish AI Video Production Studio",
+      "description": "A fully self-contained desktop video editor with AI video generation, Hindi TTS, animated captions, and timeline editing. No cloud, no API keys.",
+      "desktop": {
+        "Name": "Hindi Video Studio",
+        "Comment": "AI-powered local Hindi video production",
+        "Categories": "Video;AudioVideo;Graphics;"
+      }
+    },
+    "deb": {
+      "depends": ["ffmpeg", "python3", "python3-pip"]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mrchandrayee",
+        "repo": "CapCut-AI-Video-Editor",
+        "releaseType": "release"
+      }
+    ]
   }
 }

@@ -1,7 +1,7 @@
 {
-  "name": "hindi-video-studio",
-  "version": "2.1.5",
-  "description": "Local Hindi/Hinglish AI Video Production Studio — fully offline, no cloud",
+  "name": "cutflow",
+  "version": "0.1.0",
+  "description": "Cutflow - Unified AI Video Studio",
   "main": "electron/main.js",
   "author": {
     "name": "mrchandrayee",
@@ -30,8 +30,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.mrchandrayee.hindi-video-studio",
-    "productName": "Hindi Video Studio",
+    "appId": "com.mrchandrayee.cutflow",
+    "productName": "Cutflow",
     "copyright": "Copyright © 2025 mrchandrayee",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
@@ -102,11 +102,11 @@
         { "target": "deb", "arch": ["x64"] }
       ],
       "maintainer": "mrchandrayee",
-      "synopsis": "Local Hindi/Hinglish AI Video Production Studio",
-      "description": "A fully self-contained desktop video editor with AI video generation, Hindi TTS, animated captions, and timeline editing. No cloud, no API keys.",
+      "synopsis": "Cutflow - Unified AI Video Studio",
+      "description": "Cutflow desktop video editor with AI video generation, Indian TTS, animated captions, and timeline editing.",
       "desktop": {
-        "Name": "Hindi Video Studio",
-        "Comment": "AI-powered local Hindi video production",
+        "Name": "Cutflow",
+        "Comment": "Unified AI Video Studio",
         "Categories": "Video;AudioVideo;Graphics;"
       }
     },

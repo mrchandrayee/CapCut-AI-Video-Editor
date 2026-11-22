@@ -144,7 +144,7 @@ function showLoadingScreen(configs) {
   .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 0.9rem; width: 320px; }
   .icon { width: 20px; text-align: center; }
 </style></head><body>
-  <h2>🎬 Hindi Video Studio</h2>
+  <h2>🎬 Cutflow</h2>
   ${rows}
 </body></html>`)
 }
@@ -223,11 +223,11 @@ function buildMenu() {
       label: 'Help',
       submenu: [
         {
-          label: 'About Hindi Video Studio',
+          label: 'About Cutflow',
           click: () => dialog.showMessageBox(mainWindow, {
-            title: 'Hindi Video Studio',
-            message: 'Hindi Video Studio v1.0.0',
-            detail: 'Fully self-contained local AI video studio.\nNo cloud calls, no API keys required.\n\nVideo Engine: 47872 | Voice Engine: 7700 | Backend: 8765',
+            title: 'Cutflow',
+            message: 'Cutflow v0.1.0',
+            detail: 'Unified AI Video Studio.\nNo cloud calls, no API keys required.\n\nVideo Engine: 47872 | Voice Engine: 7700 | Backend: 8765',
             type: 'info',
           }),
         },

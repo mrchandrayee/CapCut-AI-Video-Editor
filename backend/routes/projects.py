@@ -19,7 +19,19 @@ from db.models import Project, Scene, get_db
 
 router = APIRouter()
 
-PROJECTS_DIR = Path.home() / ".hindi-video-studio" / "projects"
+import os
+_DEFAULT_DATA_DIR = (
+    Path.home() / ".drishqan"
+    if (Path.home() / ".drishqan").exists() or not (Path.home() / ".hindi-video-studio").exists()
+    else Path.home() / ".hindi-video-studio"
+)
+_DATA_DIR = Path(
+    os.environ.get(
+        "DRISHQAN_DATA_DIR",
+        os.environ.get("STUDIO_DATA_DIR", str(_DEFAULT_DATA_DIR)),
+    )
+)
+PROJECTS_DIR = _DATA_DIR / "projects"
 
 
 class CreateProjectBody(BaseModel):
@@ -87,3 +99,45 @@ def delete_project(project_id: str, db: Session = Depends(get_db)) -> dict:
     db.delete(project)
     db.commit()
     return {"deleted": project_id}
+
+
+class UpdateProjectBody(BaseModel):
+    name: str | None = None
+    script: str | None = None
+    status: str | None = None
+    workflow_type: str | None = None
+
+
+@router.patch("/api/projects/{project_id}")
+def update_project(project_id: str, body: UpdateProjectBody, db: Session = Depends(get_db)) -> dict:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if body.name is not None:
+        cleaned = body.name.strip()
+        if not cleaned:
+            raise HTTPException(status_code=400, detail="Project name cannot be empty")
+        project.name = cleaned
+
+    if body.script is not None:
+        project.script = body.script
+        # Persist script to project directory file for parity
+        try:
+            project_dir = PROJECTS_DIR / project_id
+            project_dir.mkdir(parents=True, exist_ok=True)
+            (project_dir / "script.txt").write_text(body.script, encoding="utf-8")
+        except Exception as exc:
+            pass
+
+    if body.status is not None:
+        project.status = body.status
+
+    if body.workflow_type is not None:
+        if body.workflow_type not in ("script_to_video", "audio_to_video"):
+            raise HTTPException(status_code=400, detail="Invalid workflow_type")
+        project.workflow_type = body.workflow_type
+
+    db.commit()
+    db.refresh(project)
+    return {"project": project.to_dict(), "saved": True}

@@ -54,7 +54,7 @@ export default function Sidebar({
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <span className="sidebar-logo-icon">🎬</span>
-          <span className="sidebar-logo-text">Hindi Studio</span>
+          <span className="sidebar-logo-text">DRISHQAN</span>
         </div>
         <button className="btn-new" onClick={handleNew} title="New Project">
           +

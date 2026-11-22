@@ -176,11 +176,26 @@ async def _generate_srt(wav_path: str, original_text: str) -> str:
         return _segments_to_srt(segments)
 
     except ImportError:
-        log.warning("[TTS] faster-whisper not installed; generating placeholder SRT")
-        return _placeholder_srt(original_text)
+        dur = _get_audio_file_duration(wav_path)
+        log.error(f"[TTS] faster-whisper is not installed. Creating unaligned draft bounded to actual audio duration ({dur:.2f}s). Manual sync required.")
+        return _generate_unaligned_sentence_srt(original_text, dur)
     except Exception as exc:
-        log.warning(f"[TTS] faster-whisper failed: {exc}; using placeholder SRT")
-        return _placeholder_srt(original_text)
+        dur = _get_audio_file_duration(wav_path)
+        log.error(f"[TTS] Whisper transcription failed: {exc}. Creating unaligned draft bounded to actual audio duration ({dur:.2f}s). Manual sync required.")
+        return _generate_unaligned_sentence_srt(original_text, dur)
+
+
+def _get_audio_file_duration(wav_path: str) -> float:
+    try:
+        import wave
+        with wave.open(wav_path, "rb") as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate > 0:
+                return frames / float(rate)
+    except Exception as exc:
+        log.warning(f"[TTS] Unable to read WAV duration from {wav_path}: {exc}")
+    return 0.0
 
 
 def _segments_to_srt(segments) -> str:
@@ -194,9 +209,27 @@ def _segments_to_srt(segments) -> str:
     return "\n".join(lines)
 
 
-def _placeholder_srt(text: str) -> str:
-    """Single SRT entry for the whole script."""
-    return f"1\n00:00:00,000 --> 00:10:00,000\n{text.strip()}\n"
+def _generate_unaligned_sentence_srt(text: str, total_duration: float) -> str:
+    """
+    Generate sentence-level draft subtitles strictly bounded by actual audio duration.
+    Explicitly unaligned — never represents estimated timings as speech-synchronized.
+    """
+    import re
+    # Split on Devanagari danda, period, exclamation, question mark or newline
+    sentences = [s.strip() for s in re.split(r"[।\.\!\?\n]+", text) if s.strip()]
+    if not sentences:
+        sentences = [text.strip() or "Subtitle"]
+
+    duration = max(total_duration, 1.0)
+    per_sentence = duration / len(sentences)
+
+    lines = []
+    for idx, sentence in enumerate(sentences, 1):
+        start = (idx - 1) * per_sentence
+        end = min(idx * per_sentence, duration)
+        lines.append(f"{idx}\n{_fmt_time(start)} --> {_fmt_time(end)}\n{sentence}\n")
+
+    return "\n".join(lines)
 
 
 def _fmt_time(seconds: float) -> str:

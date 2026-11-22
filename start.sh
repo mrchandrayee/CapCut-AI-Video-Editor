@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-ROOT="/Users/chandrayee/Documents/code/ecom/multilingual/hindi-video-studio"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Setup venv for videostudio engine
 if [ ! -d "$ROOT/engines/videostudio/venv" ]; then
@@ -35,5 +35,5 @@ if [ ! -d "$ROOT/frontend/node_modules" ]; then
 fi
 
 # Start the Electron app (it manages all Python processes internally)
-echo "Starting Hindi Video Studio..."
+echo "Starting DRISHQAN..."
 cd "$ROOT" && npm start

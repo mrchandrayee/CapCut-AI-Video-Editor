@@ -16,9 +16,17 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
 # ── Path setup ───────────────────────────────────────────────────────────────
+_DEFAULT_DATA_DIR = (
+    Path.home() / ".drishqan"
+    if (Path.home() / ".drishqan").exists() or not (Path.home() / ".hindi-video-studio").exists()
+    else Path.home() / ".hindi-video-studio"
+)
 _DB_PATH = os.environ.get(
-    "HINDI_STUDIO_DB",
-    str(Path.home() / ".hindi-video-studio" / "projects.db"),
+    "DRISHQAN_DB",
+    os.environ.get(
+        "HINDI_STUDIO_DB",
+        str(_DEFAULT_DATA_DIR / "projects.db"),
+    ),
 )
 _DB_URL = f"sqlite:///{_DB_PATH}"
 
@@ -27,7 +35,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Base(DeclarativeBase):
-    pass
+    __allow_unmapped__ = True
 
 
 def _new_id() -> str:
@@ -78,7 +86,7 @@ class Project(Base):
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "output_path": self.output_path,
-            "scenes": [s.to_dict() for s in self.scenes],
+            "scenes": [s.to_dict() for s in (self.scenes or [])],
         }
 
 

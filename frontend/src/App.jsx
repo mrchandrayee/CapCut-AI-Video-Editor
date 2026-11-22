@@ -105,8 +105,8 @@ export default function App() {
       <main className="main-content">
         {view === 'projects' && !selectedProject && (
           <div className="welcome">
-            <h1>Hindi Video Studio</h1>
-            <p className="welcome-subtitle">हिंदी / Hinglish स्क्रिप्ट से वीडियो बनाएं</p>
+            <h1>DRISHQAN</h1>
+            <p className="welcome-subtitle">Drishya + Creation • हिंदी / Hinglish स्क्रिप्ट से वीडियो बनाएं</p>
             <button className="btn btn-primary btn-large" onClick={() => setView('new-project')}>
               + New Project
             </button>

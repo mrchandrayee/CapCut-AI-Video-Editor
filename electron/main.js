@@ -22,6 +22,19 @@ function appRoot() {
 
 // ── Service definitions ──────────────────────────────────────────────────────
 
+
+function resolvePython(svcDir) {
+  const fs = require("fs");
+  const isWin = process.platform === "win32";
+  const venvPy = path.join(svcDir, "venv", isWin ? "Scripts/python.exe" : "bin/python");
+  if (fs.existsSync(venvPy)) return venvPy;
+  
+  const userPy = path.join(require("os").homedir(), ".ai-video-studio", "venv", isWin ? "Scripts/python.exe" : "bin/python");
+  if (fs.existsSync(userPy)) return userPy;
+  
+  return process.env.PYTHON_PATH || (isWin ? "python" : "python3");
+}
+
 function serviceConfigs() {
   const root = appRoot()
   return [
@@ -30,7 +43,7 @@ function serviceConfigs() {
       label: 'Video Engine',
       port: PORT_VIDEOSTUDIO,
       cwd: path.join(root, 'engines', 'videostudio'),
-      cmd: path.join(root, 'engines', 'videostudio', 'venv', 'bin', 'python'),
+      cmd: resolvePython(path.join(root, 'engines', 'videostudio')),
       args: ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(PORT_VIDEOSTUDIO)],
       healthUrl: `http://127.0.0.1:${PORT_VIDEOSTUDIO}/api/catalog`,
     },
@@ -39,7 +52,7 @@ function serviceConfigs() {
       label: 'Voice Engine',
       port: PORT_VEXYL_TTS,
       cwd: path.join(root, 'engines', 'vexyl-tts'),
-      cmd: path.join(root, 'engines', 'vexyl-tts', 'venv', 'bin', 'python'),
+      cmd: resolvePython(path.join(root, 'engines', 'vexyl-tts')),
       args: ['vexyl_tts_server.py'],
       healthUrl: `http://127.0.0.1:${PORT_VEXYL_TTS}/health`,
     },
@@ -48,7 +61,7 @@ function serviceConfigs() {
       label: 'Studio Backend',
       port: PORT_BACKEND,
       cwd: path.join(root, 'backend'),
-      cmd: path.join(root, 'backend', 'venv', 'bin', 'python'),
+      cmd: resolvePython(path.join(root, 'backend')),
       args: ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(PORT_BACKEND)],
       healthUrl: `http://127.0.0.1:${PORT_BACKEND}/api/health`,
     },
@@ -144,7 +157,7 @@ function showLoadingScreen(configs) {
   .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 0.9rem; width: 320px; }
   .icon { width: 20px; text-align: center; }
 </style></head><body>
-  <h2>🎬 Cutflow</h2>
+  <h2>🎬 DRISHQAN</h2><p style="margin: -10px 0 20px; font-size: 0.8rem; color: #aaa;">Drishya + Creation • Visual Creation</p>
   ${rows}
 </body></html>`)
 }
@@ -223,17 +236,25 @@ function buildMenu() {
       label: 'Help',
       submenu: [
         {
-          label: 'About Cutflow',
+          label: 'About DRISHQAN',
           click: () => dialog.showMessageBox(mainWindow, {
-            title: 'Cutflow',
-            message: 'Cutflow v0.1.0',
-            detail: 'Unified AI Video Studio.\nNo cloud calls, no API keys required.\n\nVideo Engine: 47872 | Voice Engine: 7700 | Backend: 8765',
+            title: 'DRISHQAN',
+            message: 'DRISHQAN v0.1.0',
+            detail: 'DRISHQAN — Visual Creation (Drishya + Creation).\nNo cloud calls, no API keys required.\n\nVideo Engine: 47872 | Voice Engine: 7700 | Backend: 8765',
             type: 'info',
           }),
         },
         {
           label: 'Open Data Directory',
-          click: () => shell.openPath(path.join(require('os').homedir(), '.hindi-video-studio')),
+          click: () => {
+            const fs = require('fs')
+            const os = require('os')
+            const d1 = path.join(os.homedir(), '.drishqan')
+            const d2 = path.join(os.homedir(), '.hindi-video-studio')
+            const target = fs.existsSync(d1) ? d1 : (fs.existsSync(d2) ? d2 : d1)
+            if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true })
+            shell.openPath(target)
+          },
         },
       ],
     },

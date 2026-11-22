@@ -128,7 +128,7 @@ export default function Settings() {
       <section className="settings-section">
         <h3>About</h3>
         <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: 1.6 }}>
-          Hindi Video Studio runs entirely on your Mac. No cloud services, no API keys.
+          DRISHQAN (Drishya + Creation) runs entirely on your Mac. No cloud services, no API keys.
           <br />
           Video Engine (Lance 3B / LTX-Video / Wan 2.2 / CogVideoX) · Port 47872
           <br />

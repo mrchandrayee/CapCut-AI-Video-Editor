@@ -50,34 +50,40 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.dmg
-          name: "Cutflow ${{ github.ref_name }}"
+          name: "DRISHQAN ${{ github.ref_name }}"
           body: |
-            ## Cutflow ${{ github.ref_name }}
+            ## DRISHQAN ${{ github.ref_name }}
+
+> **Drishya + Creation** — Visual Creation Local AI Video Studio
 
             ### 🚀 Downloads
             | Platform | File | Architecture |
             |---|---|---|
-            | 🍎 macOS | `Cutflow-${{ github.ref_name }}-mac-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
-            | 🍎 macOS | `Cutflow-${{ github.ref_name }}-mac-x64.dmg` | Intel Macs |
-            | 🪟 Windows | `Cutflow-${{ github.ref_name }}-win-x64.exe` | Windows 10/11 (64-bit) |
-            | 🐧 Linux | `Cutflow-${{ github.ref_name }}-linux-amd64.deb` | Ubuntu / Debian |
+            | 🍎 macOS | `DRISHQAN-${{ github.ref_name }}-mac-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
+            | 🍎 macOS | `DRISHQAN-${{ github.ref_name }}-mac-x64.dmg` | Intel Macs |
+            | 🪟 Windows | `DRISHQAN-${{ github.ref_name }}-win-x64.exe` | Windows 10/11 (64-bit) |
+            | 🐧 Linux | `DRISHQAN-${{ github.ref_name }}-linux-amd64.deb` | Ubuntu / Debian |
 
             ---
 
             ### 🍎 macOS Fix: Gatekeeper & 1-Click Run Command
             Apple Gatekeeper blocks unsigned open-source applications on macOS Sequoia/Sonoma.
 
-            **To install and launch Cutflow in 1 second without any errors, paste this in Terminal:**
+            **To install and launch DRISHQAN in 1 second without any errors, paste this in Terminal:**
             ```bash
-            cp -R "/Volumes/Cutflow 0.1.0/Cutflow.app" /Applications/ 2>/dev/null || true
-            sudo xattr -cr "/Applications/Cutflow.app"
-            codesign --force --deep --sign - "/Applications/Cutflow.app"
-            open "/Applications/Cutflow.app"
+            # Copy app from DMG to Applications
+            cp -R "/Volumes/DRISHQAN"*/DRISHQAN.app /Applications/ 2>/dev/null || true
+
+            # Remove Apple Gatekeeper quarantine flag
+            xattr -cr /Applications/DRISHQAN.app
+
+            # Launch DRISHQAN
+            open /Applications/DRISHQAN.app
             ```
 
             **Single-line command:**
             ```bash
-            sudo xattr -cr "/Applications/Cutflow.app" && codesign --force --deep --sign - "/Applications/Cutflow.app" && open "/Applications/Cutflow.app"
+            xattr -cr /Applications/DRISHQAN.app && open /Applications/DRISHQAN.app
             ```
 
             ---

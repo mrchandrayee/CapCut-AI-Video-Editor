@@ -122,7 +122,81 @@ class LLMService:
                 data = await resp.json()
         return data.get("response", "")
 
-    def _parse_scenes(self, raw: str) -> list[dict]:
+    
+def validate_scenes(
+    scenes: list[dict],
+    total_duration: Optional[float] = None,
+    allow_gaps: bool = True,
+    allow_overlap: bool = True,
+) -> list[dict]:
+    """
+    Validate and sanitize LLM-generated scene storyboard.
+    Enforces timestamp ordering, positive durations, non-empty prompts, and boundary limits.
+    Configurable gap/overlap tolerance for flexible creative workflows.
+    """
+    if not isinstance(scenes, list) or len(scenes) == 0:
+        raise ValueError("Scene list must be a non-empty array")
+
+    required = {"scene_num", "start_s", "end_s", "visual_prompt", "scene_title"}
+    validated = []
+
+    for i, s in enumerate(scenes):
+        missing = required - set(s.keys())
+        if missing:
+            raise ValueError(f"Scene {i + 1} is missing required fields: {missing}")
+
+        try:
+            start_s = float(s["start_s"])
+            end_s = float(s["end_s"])
+        except (ValueError, TypeError):
+            raise ValueError(f"Scene {i + 1} timestamps must be valid numbers: start={s.get("start_s")}, end={s.get("end_s")}")
+
+        if start_s < 0:
+            raise ValueError(f"Scene {i + 1} start_s cannot be negative ({start_s})")
+        if end_s <= start_s:
+            raise ValueError(f"Scene {i + 1} end_s ({end_s}) must be strictly greater than start_s ({start_s})")
+
+        prompt = str(s.get("visual_prompt", "")).strip()
+        if not prompt:
+            raise ValueError(f"Scene {i + 1} visual_prompt cannot be empty")
+
+        title = str(s.get("scene_title", "")).strip() or f"Scene {i + 1}"
+
+        if total_duration and total_duration > 0 and end_s > total_duration + 5.0:
+            # Clamp if LLM overshoot total duration by more than 5s
+            end_s = round(total_duration, 2)
+
+        validated.append({
+            "scene_num": i + 1,
+            "start_s": round(start_s, 2),
+            "end_s": round(end_s, 2),
+            "visual_prompt": prompt,
+            "scene_title": title,
+        })
+
+    # Validate ordering, overlaps, and gaps
+    for i in range(1, len(validated)):
+        prev = validated[i - 1]
+        curr = validated[i]
+
+        if curr["start_s"] < prev["start_s"]:
+            raise ValueError(
+                f"Scenes out of chronological order: Scene {curr["scene_num"]} starts at {curr["start_s"]}s before Scene {prev["scene_num"]} at {prev["start_s"]}s"
+            )
+
+        if not allow_overlap and curr["start_s"] < prev["end_s"]:
+            raise ValueError(
+                f"Overlapping scenes not permitted: Scene {curr["scene_num"]} starts at {curr["start_s"]}s while Scene {prev["scene_num"]} ends at {prev["end_s"]}s"
+            )
+
+        if not allow_gaps and curr["start_s"] > prev["end_s"]:
+            raise ValueError(
+                f"Scene gap detected: Scene {prev["scene_num"]} ends at {prev["end_s"]}s but Scene {curr["scene_num"]} starts at {curr["start_s"]}s"
+            )
+
+    return validated
+
+    def _parse_scenes(self, raw: str, total_duration: Optional[float] = None) -> list[dict]:
         """Parse JSON from LLM response; handle common wrapping issues."""
         text = raw.strip()
         # Strip markdown code fences if present
@@ -137,12 +211,7 @@ class LLMService:
         scenes = json.loads(text[start:end + 1])
         if not isinstance(scenes, list):
             raise ValueError("LLM response is not a list")
-        required = {"scene_num", "start_s", "end_s", "visual_prompt", "scene_title"}
-        for i, s in enumerate(scenes):
-            missing = required - set(s.keys())
-            if missing:
-                raise ValueError(f"Scene {i} missing fields: {missing}")
-        return scenes
+        return validate_scenes(scenes, total_duration=total_duration)
 
     async def segment_script(
         self,
@@ -166,7 +235,7 @@ class LLMService:
         for attempt in range(2):
             try:
                 raw = await self._call_ollama(self._model, SYSTEM_PROMPT_SEGMENT, user_prompt)
-                scenes = self._parse_scenes(raw)
+                scenes = self._parse_scenes(raw, total_duration=duration)
                 log.info(f"[LLM] Segmented into {len(scenes)} scenes (attempt {attempt + 1})")
                 return scenes
             except Exception as exc:
@@ -191,7 +260,7 @@ class LLMService:
         for attempt in range(2):
             try:
                 raw = await self._call_ollama(self._model, SYSTEM_PROMPT_SRT, user_prompt)
-                scenes = self._parse_scenes(raw)
+                scenes = self._parse_scenes(raw, total_duration=duration)
                 log.info(f"[LLM] Generated {len(scenes)} prompts from SRT (attempt {attempt + 1})")
                 return scenes
             except Exception as exc:

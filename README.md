@@ -1,6 +1,6 @@
-# Cutflow — Unified AI Video Studio
+# DRISHQAN — Visual Creation (दृश्य + Creation)
 
-A fully self-contained desktop application for AI-powered video production. Built with Cutflow UI + local AI video generators (Lance 3B, LTX, Wan 2.2, CogVideoX) + 22-language Indian TTS (Indic-Parler-TTS) + automated captions and timeline.
+A fully self-contained desktop application for AI-powered video production. Built with local AI video generators (Lance 3B, LTX-Video, Wan 2.2, CogVideoX) + 22-language Indian TTS (Indic-Parler-TTS) + automated captions and timeline video creation.
 
 No external services needed, no API keys, no cloud calls — runs locally on your computer.
 
@@ -8,19 +8,19 @@ No external services needed, no API keys, no cloud calls — runs locally on you
 
 ## 🍎 macOS Installation & 1-Click Launch Guide
 
-On macOS Sequoia & Sonoma, unsigned open-source apps downloaded from the internet are blocked by Gatekeeper with a *"Malware Blocked"* warning.
+On macOS Sequoia & Sonoma, unsigned open-source apps downloaded from the internet are blocked by Apple Gatekeeper with a *"Malware Blocked"* warning.
 
 ### Step 1: Download & Open DMG
-Download `Cutflow-0.1.0-mac-arm64.dmg` (for M1/M2/M3/M4) or `mac-x64.dmg` (for Intel) from [Releases](https://github.com/mrchandrayee/CapCut-in-AI-Video-studio/releases). Double-click the DMG to open it.
+Download `DRISHQAN-0.1.0-mac-arm64.dmg` (for Apple Silicon M1/M2/M3/M4) or `DRISHQAN-0.1.0-mac-x64.dmg` (for Intel) from [Releases](https://github.com/mrchandrayee/CapCut-in-AI-Video-studio/releases). Double-click the DMG to open it.
 
-### Step 2: Run in Terminal (1-Click Install & Run)
-Open **Terminal** and copy-paste this single command:
+### Step 2: 1-Click Run Command
+Open **Terminal** and copy-paste this command:
 
 ```bash
-cp -R "/Volumes/Cutflow 0.1.0/Cutflow.app" /Applications/ && sudo xattr -cr "/Applications/Cutflow.app" && codesign --force --deep --sign - "/Applications/Cutflow.app" && open "/Applications/Cutflow.app"
+xattr -cr /Applications/DRISHQAN.app && open /Applications/DRISHQAN.app
 ```
 
-*(Enter your Mac password when prompted. The app will be copied to Applications, quarantine lock removed, and launched immediately without any error).*
+*(This clears the Gatekeeper quarantine attribute safely without modifying internal signatures, launching DRISHQAN instantly).*
 
 ---
 

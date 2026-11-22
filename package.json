@@ -1,17 +1,17 @@
 {
-  "name": "cutflow",
+  "name": "drishqan",
   "version": "0.1.0",
-  "description": "Cutflow - Unified AI Video Studio",
+  "description": "DRISHQAN \u2014 Drishya + Creation (Visual Creation) Local AI Video Studio",
   "main": "electron/main.js",
   "author": {
     "name": "mrchandrayee",
     "email": "mrchandrayee@gmail.com",
     "url": "https://github.com/mrchandrayee"
   },
-  "homepage": "https://github.com/mrchandrayee/CapCut-hindi-AI-Video-studio",
+  "homepage": "https://github.com/mrchandrayee/CapCut-in-AI-Video-studio",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mrchandrayee/CapCut-hindi-AI-Video-studio.git"
+    "url": "https://github.com/mrchandrayee/CapCut-in-AI-Video-studio.git"
   },
   "scripts": {
     "start": "electron .",
@@ -30,9 +30,9 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.mrchandrayee.cutflow",
-    "productName": "Cutflow",
-    "copyright": "Copyright © 2025 mrchandrayee",
+    "appId": "com.mrchandrayee.drishqan",
+    "productName": "DRISHQAN",
+    "copyright": "Copyright \u00a9 2025 mrchandrayee",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "asarUnpack": [
@@ -54,14 +54,25 @@
       {
         "from": "engines/",
         "to": "engines/",
-        "filter": ["**/*", "!**/venv", "!**/__pycache__", "!**/*.pyc"]
+        "filter": [
+          "**/*",
+          "!**/venv",
+          "!**/__pycache__",
+          "!**/*.pyc"
+        ]
       }
     ],
     "mac": {
       "category": "public.app-category.video",
       "icon": "build/icon.icns",
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "darkModeSupport": true,
       "hardenedRuntime": false,
@@ -72,16 +83,33 @@
     "dmg": {
       "title": "${productName} ${version}",
       "background": null,
-      "window": { "width": 540, "height": 380 },
+      "window": {
+        "width": 540,
+        "height": 380
+      },
       "contents": [
-        { "x": 130, "y": 220, "type": "file" },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -99,19 +127,29 @@
       "icon": "build/icon.png",
       "category": "Video",
       "target": [
-        { "target": "deb", "arch": ["x64"] }
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "maintainer": "mrchandrayee",
-      "synopsis": "Cutflow - Unified AI Video Studio",
-      "description": "Cutflow desktop video editor with AI video generation, Indian TTS, animated captions, and timeline editing.",
+      "synopsis": "DRISHQAN \u2014 Visual Creation",
+      "description": "DRISHQAN (Drishya + Creation) local desktop video studio with Indian TTS, video AI, and timeline editing.",
       "desktop": {
-        "Name": "Cutflow",
-        "Comment": "Unified AI Video Studio",
+        "Name": "DRISHQAN",
+        "Comment": "DRISHQAN \u2014 Visual Creation",
         "Categories": "Video;AudioVideo;Graphics;"
       }
     },
     "deb": {
-      "depends": ["ffmpeg", "python3", "python3-pip"]
+      "depends": [
+        "ffmpeg",
+        "python3",
+        "python3-pip"
+      ]
     }
-  }
+  },
+  "productName": "DRISHQAN"
 }

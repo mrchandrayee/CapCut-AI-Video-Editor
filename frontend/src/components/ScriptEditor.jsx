@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import '@fontsource/noto-sans-devanagari/400.css'
 import '@fontsource/noto-sans-devanagari/700.css'
 import '@fontsource/hind/400.css'
@@ -19,16 +19,13 @@ const MODELS = [
   { value: 'wan-5b', label: 'Wan 2.2 5B (High Quality)' },
 ]
 
-// Hindi / Devanagari-compatible fonts from the Cutflow font system
 const HINDI_FONTS = [
   { id: 'noto-sans-devanagari', name: 'Noto Sans Devanagari', family: 'Noto Sans Devanagari' },
   { id: 'hind', name: 'Hind', family: 'Hind' },
   { id: 'baloo', name: 'Baloo Bhaijaan 2', family: 'Baloo Bhaijaan 2' },
-  // Latin fallback that also renders Devanagari via system fallback
   { id: 'montserrat', name: 'Montserrat', family: 'Montserrat' },
 ]
 
-// Count Devanagari characters
 function devanagariRatio(text) {
   if (!text) return 0
   const devChars = (text.match(/[\u0900-\u097F]/g) || []).length
@@ -42,23 +39,84 @@ export default function ScriptEditor({ project, onUpdate, onRunPipeline }) {
   const [model, setModel] = useState('lance-3b')
   const [quality, setQuality] = useState('final')
   const [selectedFont, setSelectedFont] = useState('noto-sans-devanagari')
-  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('saved') // saved | unsaved | saving | error
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
+  const autosaveTimerRef = useRef(null)
 
   useEffect(() => {
     setScript(project.script || '')
+    setSaveStatus('saved')
   }, [project.id])
 
   const isWorkflowB = project.workflow_type === 'audio_to_video'
   const ratio = devanagariRatio(script)
-
-  // Compute CSS font-family from selected font
   const activeFontFamily = HINDI_FONTS.find((f) => f.id === selectedFont)?.family || 'Noto Sans Devanagari'
+
+  // Explicit Save to Backend
+  const saveScript = useCallback(async (textToSave) => {
+    setSaveStatus('saving')
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script: textToSave }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Failed to save project script')
+      }
+      const data = await res.json()
+      setSaveStatus('saved')
+      if (onUpdate && data.project) {
+        onUpdate(data.project)
+      }
+      return true
+    } catch (err) {
+      console.error('Save error:', err)
+      setSaveStatus('error')
+      setError(err.message)
+      return false
+    }
+  }, [project.id, onUpdate])
+
+  // Handle textarea change with autosave debounce (1200ms)
+  function handleScriptChange(e) {
+    const nextText = e.target.value
+    setScript(nextText)
+    setSaveStatus('unsaved')
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current)
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      saveScript(nextText)
+    }, 1200)
+  }
+
+  // Cleanup autosave timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current)
+      }
+    }
+  }, [])
 
   async function handleRun() {
     setRunning(true)
     setError('')
+
+    // Always ensure latest script is saved before running pipeline
+    if (saveStatus !== 'saved' && !isWorkflowB) {
+      const saved = await saveScript(script)
+      if (!saved) {
+        setRunning(false)
+        return
+      }
+    }
+
     try {
       const res = await fetch(`/api/pipeline/${project.id}/run`, {
         method: 'POST',
@@ -86,7 +144,25 @@ export default function ScriptEditor({ project, onUpdate, onRunPipeline }) {
             {isWorkflowB ? 'Workflow B: Audio → Video' : 'Workflow A: Script → Video'}
           </span>
         </div>
-        <div className="panel-header-actions">
+        <div className="panel-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {!isWorkflowB && (
+            <div className="save-status-indicator" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {saveStatus === 'saved' && <span style={{ color: '#10b981' }}>✓ Saved</span>}
+              {saveStatus === 'unsaved' && <span style={{ color: '#f59e0b' }}>● Unsaved changes</span>}
+              {saveStatus === 'saving' && <span style={{ color: '#60a5fa' }}>⏳ Saving...</span>}
+              {saveStatus === 'error' && <span style={{ color: '#ef4444' }}>⚠️ Save error</span>}
+            </div>
+          )}
+          {!isWorkflowB && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => saveScript(script)}
+              disabled={saveStatus === 'saving' || saveStatus === 'saved'}
+              title="Manual Save"
+            >
+              💾 Save
+            </button>
+          )}
           <button
             className="btn btn-primary"
             onClick={handleRun}
@@ -116,7 +192,7 @@ export default function ScriptEditor({ project, onUpdate, onRunPipeline }) {
             className="textarea script-textarea"
             style={{ fontFamily: `"${activeFontFamily}", serif`, fontSize: '1.05rem', lineHeight: 1.7 }}
             value={script}
-            onChange={(e) => setScript(e.target.value)}
+            onChange={handleScriptChange}
             placeholder="यहाँ अपनी हिंदी / Hinglish स्क्रिप्ट लिखें...&#10;&#10;Example:&#10;नमस्ते, आज हम एक खूबसूरत सफर पर जाएंगे।&#10;यह वीडियो भारत की संस्कृति और परंपराओं के बारे में है।"
             rows={16}
           />

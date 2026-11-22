@@ -1,6 +1,6 @@
 {
   "name": "hindi-video-studio",
-  "version": "2.1.1",
+  "version": "2.1.3",
   "description": "Local Hindi/Hinglish AI Video Production Studio — fully offline, no cloud",
   "main": "electron/main.js",
   "author": {
@@ -8,26 +8,25 @@
     "email": "mrchandrayee@gmail.com",
     "url": "https://github.com/mrchandrayee"
   },
-  "homepage": "https://github.com/mrchandrayee/CapCut-AI-Video-Editor",
+  "homepage": "https://github.com/mrchandrayee/CapCut-hindi-AI-Video-studio",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mrchandrayee/CapCut-AI-Video-Editor.git"
+    "url": "https://github.com/mrchandrayee/CapCut-hindi-AI-Video-studio.git"
   },
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"cd frontend && npm run dev\" \"sleep 3 && electron .\"",
     "build:frontend": "cd frontend && npm install && npm run build",
-    "build:mac": "npm run build:frontend && electron-builder --mac --arm64 --x64",
-    "build:win": "npm run build:frontend && electron-builder --win --x64",
-    "build:linux": "npm run build:frontend && electron-builder --linux deb --x64",
-    "build:all": "npm run build:frontend && electron-builder --mac --win --linux",
+    "build:mac": "npm run build:frontend && electron-builder --mac --arm64 --x64 -c.publish=never",
+    "build:win": "npm run build:frontend && electron-builder --win --x64 -c.publish=never",
+    "build:linux": "npm run build:frontend && electron-builder --linux deb --x64 -c.publish=never",
+    "build:all": "npm run build:frontend && electron-builder --mac --win --linux -c.publish=never",
     "dist": "npm run build:all"
   },
-  "dependencies": {
-    "electron": "^31.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "concurrently": "^8.2.0",
+    "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -113,14 +112,6 @@
     },
     "deb": {
       "depends": ["ffmpeg", "python3", "python3-pip"]
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "mrchandrayee",
-        "repo": "CapCut-AI-Video-Editor",
-        "releaseType": "release"
-      }
-    ]
+    }
   }
 }

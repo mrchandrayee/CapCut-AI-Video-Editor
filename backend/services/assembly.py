@@ -211,9 +211,7 @@ class AssemblyService:
             f"subtitles='{ass_escaped}':fontsdir='{font_dir}'"
         )
 
-        cmd = inputs + [
-            "-map", "0:v:0",
-        ]
+        cmd = inputs[:]
 
         if has_music:
             # Mix narration and music: narration at 1.0, music at 0.15 (-20dB relative)
@@ -226,6 +224,7 @@ class AssemblyService:
         else:
             cmd += [
                 "-vf", vf,
+                "-map", "0:v:0",
                 "-map", "1:a:0",
             ]
 

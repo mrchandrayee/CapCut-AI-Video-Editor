@@ -5,14 +5,32 @@ GET /api/health
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 import aiohttp
 from fastapi import APIRouter
 
 router = APIRouter()
+
+_SETTINGS_PATH = Path.home() / ".hindi-video-studio" / "settings.json"
+_SETTINGS_DEFAULTS = {
+    "tts_url": "http://localhost:7700",
+    "ollama_url": "http://localhost:11434",
+    "video_studio_url": "http://localhost:47872",
+}
+
+
+def _load_settings() -> dict:
+    if _SETTINGS_PATH.exists():
+        try:
+            return {**_SETTINGS_DEFAULTS, **json.loads(_SETTINGS_PATH.read_text())}
+        except Exception:
+            pass
+    return dict(_SETTINGS_DEFAULTS)
 
 
 async def _check_tts(url: str) -> dict:
@@ -67,9 +85,10 @@ async def _check_video_studio(url: str) -> dict:
 @router.get("/api/health")
 async def health_check() -> dict:
     """Check this server and all three external services."""
-    tts_url = os.environ.get("TTS_URL", "http://localhost:7700")
-    ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-    video_url = os.environ.get("VIDEO_STUDIO_URL", "http://localhost:47872")
+    settings = _load_settings()
+    tts_url = settings.get("tts_url") or os.environ.get("TTS_URL", _SETTINGS_DEFAULTS["tts_url"])
+    ollama_url = settings.get("ollama_url") or os.environ.get("OLLAMA_URL", _SETTINGS_DEFAULTS["ollama_url"])
+    video_url = settings.get("video_studio_url") or os.environ.get("VIDEO_STUDIO_URL", _SETTINGS_DEFAULTS["video_studio_url"])
 
     tts_result, llm_result, video_result = await asyncio.gather(
         _check_tts(tts_url),

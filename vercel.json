@@ -1,0 +1,12 @@
+{
+  "builds": [],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/404"
+    }
+  ],
+  "github": {
+    "enabled": false
+  }
+}

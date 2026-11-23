@@ -2,24 +2,45 @@
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Find best compatible Python (prefer 3.12, 3.11, 3.10; Python 3.14 lacks pre-built wheels for tokenizers/PyO3)
+PY_BIN=""
+for cmd in python3.12 python3.11 python3.10 python3.13 /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3.13 python3; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    ver=$("$cmd" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "0.0")
+    major=$(echo "$ver" | cut -d. -f1)
+    minor=$(echo "$ver" | cut -d. -f2)
+    if [ "$major" -eq 3 ] && [ "$minor" -le 13 ] && [ "$minor" -ge 10 ]; then
+      PY_BIN="$cmd"
+      break
+    fi
+  fi
+done
+
+if [ -z "$PY_BIN" ]; then
+  PY_BIN="python3"
+fi
+
+echo "Using Python: $PY_BIN ($($PY_BIN --version))"
+export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
 # Setup venv for videostudio engine
 if [ ! -d "$ROOT/engines/videostudio/venv" ]; then
   echo "Setting up Video Engine venv..."
-  python3 -m venv "$ROOT/engines/videostudio/venv"
+  "$PY_BIN" -m venv "$ROOT/engines/videostudio/venv"
   "$ROOT/engines/videostudio/venv/bin/pip" install -r "$ROOT/engines/videostudio/requirements.txt"
 fi
 
 # Setup venv for vexyl-tts engine
 if [ ! -d "$ROOT/engines/vexyl-tts/venv" ]; then
   echo "Setting up Voice Engine venv..."
-  python3 -m venv "$ROOT/engines/vexyl-tts/venv"
+  "$PY_BIN" -m venv "$ROOT/engines/vexyl-tts/venv"
   "$ROOT/engines/vexyl-tts/venv/bin/pip" install -r "$ROOT/engines/vexyl-tts/requirements.txt"
 fi
 
 # Setup venv for orchestration backend
 if [ ! -d "$ROOT/backend/venv" ]; then
   echo "Setting up Studio Backend venv..."
-  python3 -m venv "$ROOT/backend/venv"
+  "$PY_BIN" -m venv "$ROOT/backend/venv"
   "$ROOT/backend/venv/bin/pip" install -r "$ROOT/backend/requirements.txt"
 fi
 

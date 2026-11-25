@@ -45,6 +45,19 @@ class CreateProjectBody(BaseModel):
 @router.get("/api/projects")
 def list_projects(db: Session = Depends(get_db)) -> dict:
     projects = db.query(Project).order_by(Project.created_at.desc()).all()
+    if not projects:
+        # Seed default project in DB so pipeline and frontend never 404
+        demo = Project(
+            id="demo-project",
+            name="मेरा पहला AI वीडियो",
+            workflow_type="script_to_video",
+            script="आज के इस वीडियो में हम जानेंगे कि AI की मदद से कैसे बिना कैमरे के शानदार वीडियो बनाए जा सकते हैं। कटफ्लो और दृश्यम तकनीक से आप सिर्फ एक प्रॉम्प्ट लिखकर पूरी रील तैयार कर सकते हैं।",
+            status="pending",
+        )
+        db.add(demo)
+        db.commit()
+        db.refresh(demo)
+        projects = [demo]
     return {"projects": [p.to_dict() for p in projects]}
 
 

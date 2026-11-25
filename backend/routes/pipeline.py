@@ -46,7 +46,17 @@ async def run_pipeline(project_id: str, body: RunPipelineBody) -> dict:
     try:
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+            log.info(f"[Pipeline] Project {project_id} auto-created for pipeline run")
+            project = Project(
+                id=project_id,
+                name="मेरा पहला AI वीडियो" if project_id == "demo-project" else f"Project {project_id}",
+                workflow_type="script_to_video",
+                script="आज के इस वीडियो में हम जानेंगे कि AI की मदद से कैसे बिना कैमरे के शानदार वीडियो बनाए जा सकते हैं। कटफ्लो और दृश्यम तकनीक से आप सिर्फ एक प्रॉम्प्ट लिखकर पूरी रील तैयार कर सकते हैं।",
+                status="pending",
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
         if project.status not in ("pending", "error", "done"):
             raise HTTPException(status_code=409, detail=f"Pipeline already running (status: {project.status})")
     finally:
@@ -322,7 +332,16 @@ def _get_project(project_id: str) -> Project:
     try:
         p = db.query(Project).filter(Project.id == project_id).first()
         if not p:
-            raise RuntimeError(f"Project {project_id} not found")
+            p = Project(
+                id=project_id,
+                name="मेरा पहला AI वीडियो" if project_id == "demo-project" else f"Project {project_id}",
+                workflow_type="script_to_video",
+                script="आज के इस वीडियो में हम जानेंगे कि AI की मदद से कैसे बिना कैमरे के शानदार वीडियो बनाए जा सकते हैं। कटफ्लो और दृश्यम तकनीक से आप सिर्फ एक प्रॉम्प्ट लिखकर पूरी रील तैयार कर सकते हैं।",
+                status="pending",
+            )
+            db.add(p)
+            db.commit()
+            db.refresh(p)
         # Detach attributes we need
         project_copy = type("ProjectCopy", (), {
             "id": p.id,

@@ -54,6 +54,12 @@ if [ ! -d "$ROOT/frontend/node_modules" ]; then
   cd "$ROOT/frontend" && npm install
 fi
 
+if [ ! -d "$ROOT/frontend/dist" ]; then
+  echo "Building Cutflow frontend bundle..."
+  cd "$ROOT/frontend" && npm run build
+  cd "$ROOT"
+fi
+
 # Start the Electron app (it manages all Python processes internally)
 echo "Starting DRISHQAN..."
 cd "$ROOT" && npm start

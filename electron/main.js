@@ -179,22 +179,25 @@ function createWindow() {
   const packagedIndex = path.join(app.getAppPath(), 'frontend', 'dist', 'index.html')
   const localIndex = require('fs').existsSync(packagedIndex) ? packagedIndex : distIndex
 
-  if (IS_DEV) {
-    mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`).catch(() => {
+  // Probe port 5173 (Vite dev server); if running use it, otherwise use backend (8765) or local index
+  http.get(`http://127.0.0.1:${FRONTEND_PORT}`, (res) => {
+    console.log(`[electron] Vite dev server detected on :${FRONTEND_PORT}, loading live UI`)
+    mainWindow.loadURL(`http://127.0.0.1:${FRONTEND_PORT}`)
+  }).on('error', () => {
+    console.log(`[electron] Serving Cutflow UI via Studio Backend on :${PORT_BACKEND}`)
+    mainWindow.loadURL(`http://127.0.0.1:${PORT_BACKEND}`).catch(() => {
+      console.log('[electron] Backend route failed, falling back to local dist bundle')
       mainWindow.loadFile(localIndex)
     })
-    mainWindow.webContents.openDevTools()
-  } else {
-    // In production, try backend first; if it's not ready, fallback to local bundle
-    mainWindow.loadURL(`http://localhost:${PORT_BACKEND}`).catch(() => {
-      console.log('[electron] Backend not available, loading local index.html')
-      mainWindow.loadFile(localIndex)
-    })
+  })
+
+  if (process.env.DEBUG === 'true') {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.warn(`[electron] Failed to load ${validatedURL} (${errorCode}: ${errorDescription})`)
-    if (validatedURL && validatedURL.startsWith('http://localhost')) {
+    if (validatedURL && validatedURL.startsWith('http://127.0.0.1')) {
       mainWindow.loadFile(localIndex).catch((e) => console.error('[electron] loadFile failed:', e))
     }
   })

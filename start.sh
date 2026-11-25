@@ -36,10 +36,17 @@ if [ ! -d "$ROOT/node_modules" ]; then
   cd "$ROOT" && npm install
 fi
 
-# Ensure Electron binary is extracted
+# Ensure Electron binary is extracted and Gatekeeper-unlocked
 if [ ! -f "$ROOT/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ] && [ ! -f "$ROOT/node_modules/electron/dist/electron" ] && [ ! -f "$ROOT/node_modules/electron/dist/electron.exe" ]; then
   echo "Extracting Electron binary..."
   node "$ROOT/node_modules/electron/install.js"
+fi
+
+# Unlock macOS Gatekeeper quarantine on Electron binary
+if [ "$(uname)" = "Darwin" ] && [ -d "$ROOT/node_modules/electron/dist/Electron.app" ]; then
+  echo "Unlocking macOS Gatekeeper for local Electron..."
+  xattr -cr "$ROOT/node_modules/electron/dist/Electron.app" 2>/dev/null || true
+  codesign --force --deep --sign - "$ROOT/node_modules/electron/dist/Electron.app" 2>/dev/null || true
 fi
 
 if [ ! -d "$ROOT/frontend/node_modules" ]; then

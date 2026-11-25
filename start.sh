@@ -36,6 +36,12 @@ if [ ! -d "$ROOT/node_modules" ]; then
   cd "$ROOT" && npm install
 fi
 
+# Ensure Electron binary is extracted
+if [ ! -f "$ROOT/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ] && [ ! -f "$ROOT/node_modules/electron/dist/electron" ] && [ ! -f "$ROOT/node_modules/electron/dist/electron.exe" ]; then
+  echo "Extracting Electron binary..."
+  node "$ROOT/node_modules/electron/install.js"
+fi
+
 if [ ! -d "$ROOT/frontend/node_modules" ]; then
   echo "Installing frontend dependencies..."
   cd "$ROOT/frontend" && npm install

@@ -60,6 +60,16 @@
           "!**/__pycache__",
           "!**/*.pyc"
         ]
+      },
+      {
+        "from": "backend/",
+        "to": "backend/",
+        "filter": [
+          "**/*",
+          "!**/venv",
+          "!**/__pycache__",
+          "!**/*.pyc"
+        ]
       }
     ],
     "mac": {

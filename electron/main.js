@@ -11,7 +11,7 @@ const PORT_VIDEOSTUDIO = 47872
 const PORT_VEXYL_TTS = 7700
 const PORT_BACKEND = 8765
 const FRONTEND_PORT = 5173
-const STARTUP_TIMEOUT_MS = 60_000
+const STARTUP_TIMEOUT_MS = 8_000
 const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 function appRoot() {
@@ -22,7 +22,6 @@ function appRoot() {
 
 // ── Service definitions ──────────────────────────────────────────────────────
 
-
 function resolvePython(svcDir) {
   const fs = require("fs");
   const isWin = process.platform === "win32";
@@ -31,6 +30,21 @@ function resolvePython(svcDir) {
   
   const userPy = path.join(require("os").homedir(), ".ai-video-studio", "venv", isWin ? "Scripts/python.exe" : "bin/python");
   if (fs.existsSync(userPy)) return userPy;
+
+  const candidates = isWin
+    ? ["python.exe", "python"]
+    : [
+        "/opt/homebrew/bin/python3.12",
+        "/opt/homebrew/bin/python3.11",
+        "/opt/homebrew/bin/python3",
+        "/usr/local/bin/python3",
+        "python3",
+        "python"
+      ];
+
+  for (const c of candidates) {
+    if (c.startsWith("/") && fs.existsSync(c)) return c;
+  }
   
   return process.env.PYTHON_PATH || (isWin ? "python" : "python3");
 }
@@ -96,7 +110,11 @@ function startService(svc) {
       }
     })
     proc.on('exit', (code) => {
-      if (code !== null && code !== 0) console.error(`[${svc.name}] Exited with code ${code}`)
+      if (code !== null && code !== 0) {
+        console.error(`[${svc.name}] Exited with code ${code}`)
+        clearInterval(poll)
+        reject(new Error(`${svc.label} exited with code ${code}`))
+      }
     })
 
     // Poll health
@@ -134,39 +152,21 @@ let loadingWindow = null
 function showLoadingScreen(configs) {
   loadingWindow = new BrowserWindow({
     width: 420,
-    height: 300,
+    height: 320,
     frame: false,
     resizable: false,
-    backgroundColor: '#0f0f0f',
+    backgroundColor: '#111116',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
 
-  const rows = configs.map((c) =>
-    `<div id="row-${c.name}" class="row">
-       <span class="icon">⏳</span>
-       <span>Starting ${c.label}…</span>
-     </div>`
-  ).join('')
-
-  loadingWindow.loadURL(`data:text/html,<!DOCTYPE html>
-<html><head><style>
-  body { margin: 0; background: #0f0f0f; color: #eee; font-family: -apple-system, sans-serif;
-         display: flex; flex-direction: column; align-items: center; justify-content: center;
-         height: 100vh; gap: 0; }
-  h2 { font-size: 1.1rem; margin: 0 0 20px; color: #ff4fd8; }
-  .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 0.9rem; width: 320px; }
-  .icon { width: 20px; text-align: center; }
-</style></head><body>
-  <h2>🎬 DRISHQAN</h2><p style="margin: -10px 0 20px; font-size: 0.8rem; color: #aaa;">Drishya + Creation • Visual Creation</p>
-  ${rows}
-</body></html>`)
+  loadingWindow.loadFile(path.join(__dirname, 'loading.html'))
 }
 
 function updateLoadingRow(name, ok) {
   if (!loadingWindow || loadingWindow.isDestroyed()) return
-  const icon = ok ? '✅' : '❌'
+  const icon = ok ? '✅' : '⚠️'
   loadingWindow.webContents.executeJavaScript(
-    `var r = document.getElementById('row-${name}'); if(r) r.querySelector('.icon').textContent = '${icon}';`
+    `var r = document.getElementById('row-${name}'); if(r) { var ic = r.querySelector('.icon'); if(ic) ic.innerHTML = '${icon}'; }`
   ).catch(() => {})
 }
 
@@ -182,6 +182,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0f0f0f',
     titleBarStyle: 'hiddenInset',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -190,12 +191,18 @@ function createWindow() {
     },
   })
 
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+  })
+
   const distIndex = path.join(__dirname, '..', 'frontend', 'dist', 'index.html')
   const packagedIndex = path.join(app.getAppPath(), 'frontend', 'dist', 'index.html')
   const localIndex = require('fs').existsSync(packagedIndex) ? packagedIndex : distIndex
 
   if (IS_DEV) {
-    mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`)
+    mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`).catch(() => {
+      mainWindow.loadFile(localIndex)
+    })
     mainWindow.webContents.openDevTools()
   } else {
     // In production, try backend first; if it's not ready, fallback to local bundle
@@ -303,40 +310,21 @@ app.whenReady().then(async () => {
   const configs = serviceConfigs()
   showLoadingScreen(configs)
 
-  // Start all three services, update loading UI per-service
-  const results = await Promise.allSettled(
+  // Start all services with fast-fail
+  await Promise.allSettled(
     configs.map(async (svc) => {
       try {
         await startService(svc)
         updateLoadingRow(svc.name, true)
       } catch (err) {
-        console.error(`[electron] ${svc.label} failed:`, err.message)
+        console.warn(`[electron] ${svc.label} failed:`, err.message)
         updateLoadingRow(svc.name, false)
-        throw err
       }
     })
   )
 
-  const allOk = results.every((r) => r.status === 'fulfilled')
-
-  if (!allOk) {
-    const failed = results
-      .map((r, i) => (r.status === 'rejected' ? configs[i].label : null))
-      .filter(Boolean)
-      .join(', ')
-
-    const choice = await dialog.showMessageBox({
-      type: 'question',
-      buttons: ['Continue Anyway', 'Quit'],
-      title: 'Some Services Failed',
-      message: `The following services did not start: ${failed}`,
-      detail: 'You can still use features powered by running services. Click Continue to proceed.',
-    })
-    if (choice.response === 1) {
-      app.quit()
-      return
-    }
-  }
+  // Brief pause so user sees checkmarks/status
+  await new Promise((r) => setTimeout(r, 600))
 
   if (loadingWindow && !loadingWindow.isDestroyed()) {
     loadingWindow.close()

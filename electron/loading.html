@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DRISHQAN Loading</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111116;
+      color: #f0f0f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-app-region: drag;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+    }
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .logo {
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 0.75rem;
+      color: #888899;
+      margin-top: 4px;
+    }
+    .list {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.82rem;
+    }
+    .icon {
+      font-size: 14px;
+      width: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #ec4899;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 0.72rem;
+      color: #666677;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🎬</div>
+    <h2>DRISHQAN</h2>
+    <div class="subtitle">Visual Creation • AI Video Studio</div>
+  </div>
+
+  <div class="list" id="services-list">
+    <div id="row-videostudio" class="row">
+      <span class="icon"><div class="spinner"></div></span>
+      <span class="label">Starting Video Engine…</span>
+    </div>
+    <div id="row-vexyl-tts" class="row">
+      <span class="icon"><div class="spinner"></div></span>
+      <span class="label">Starting Voice Engine…</span>
+    </div>
+    <div id="row-backend" class="row">
+      <span class="icon"><div class="spinner"></div></span>
+      <span class="label">Starting Studio Backend…</span>
+    </div>
+  </div>
+
+  <div class="footer">Starting studio components…</div>
+</body>
+</html>

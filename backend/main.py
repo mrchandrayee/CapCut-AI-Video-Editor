@@ -17,6 +17,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from config import get_data_dir, get_projects_dir
 from db.models import init_db
 from routes.health import router as health_router
 from routes.projects import router as projects_router
@@ -24,13 +25,12 @@ from routes.pipeline import router as pipeline_router
 from routes.settings import router as settings_router
 
 # ── Storage directories ──────────────────────────────────────────────────────
-HOME_DIR = Path.home() / ".hindi-video-studio"
-PROJECTS_DIR = HOME_DIR / "projects"
+HOME_DIR = get_data_dir()
+PROJECTS_DIR = get_projects_dir()
 
 
 def _ensure_dirs() -> None:
-    HOME_DIR.mkdir(parents=True, exist_ok=True)
-    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    pass
 
 
 # ── WebSocket manager ────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ app = FastAPI(title="Hindi Video Studio", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8765"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,12 +84,6 @@ app.include_router(health_router)
 app.include_router(projects_router)
 app.include_router(pipeline_router)
 app.include_router(settings_router)
-
-# ── Serve Frontend SPA ────────────────────────────────────────────────────────
-_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
-if _FRONTEND_DIST.exists():
-    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
-
 
 # ── WebSocket endpoint ───────────────────────────────────────────────────────
 @app.websocket("/ws/{project_id}")
@@ -104,6 +98,12 @@ async def websocket_endpoint(websocket: WebSocket, project_id: str) -> None:
         pass
     finally:
         manager.disconnect(project_id, websocket)
+
+
+# ── Serve Frontend SPA (Mounted last as catch-all) ───────────────────────────
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
 
 
 if __name__ == "__main__":

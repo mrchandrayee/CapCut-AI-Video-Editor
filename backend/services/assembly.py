@@ -58,6 +58,15 @@ def _find_ffmpeg() -> str:
     return ffmpeg
 
 
+def _has_subtitles_filter(ffmpeg: str) -> bool:
+    try:
+        import subprocess, re
+        out = subprocess.run([ffmpeg, "-filters"], capture_output=True, text=True, timeout=5)
+        return bool(re.search(r"^\s*([TSC.]{2})\s+(subtitles|ass)\s+", out.stdout, re.M))
+    except Exception:
+        return False
+
+
 def _find_font_dir() -> str:
     """Return the first font directory that contains a Noto Devanagari font."""
     for d in MACOS_FONT_DIRS:
@@ -97,8 +106,9 @@ class AssemblyService:
             path to output MP4
         """
         ffmpeg = _find_ffmpeg()
+        from config import get_projects_dir
         preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["final"])
-        projects_dir = Path.home() / ".hindi-video-studio" / "projects" / project_id
+        projects_dir = get_projects_dir() / project_id
         projects_dir.mkdir(parents=True, exist_ok=True)
         output_path = projects_dir / f"output_{quality}.mp4"
 
@@ -202,14 +212,20 @@ class AssemblyService:
         # Build filter complex
         # 1. Pad shorter clips with last frame
         # 2. Scale with letterbox
-        # 3. Apply captions
-        scale_w, scale_h = scale.split(":")
-        vf = (
-            f"tpad=stop_mode=clone,"
-            f"scale={scale}:force_original_aspect_ratio=decrease,"
-            f"pad={scale}:(ow-iw)/2:(oh-ih)/2,"
-            f"subtitles='{ass_escaped}':fontsdir='{font_dir}'"
-        )
+        # 3. Apply captions if libass/subtitles filter is available in FFmpeg build
+        can_burn_subtitles = _has_subtitles_filter(ffmpeg) and ass_path and Path(ass_path).exists()
+        filters = [
+            "tpad=stop_mode=clone",
+            f"scale={scale}:force_original_aspect_ratio=decrease",
+            f"pad={scale}:(ow-iw)/2:(oh-ih)/2",
+        ]
+        if can_burn_subtitles:
+            ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+            filters.append(f"subtitles=filename='{ass_escaped}':fontsdir='{font_dir}'")
+        else:
+            log.info("[Assembly] libass subtitles filter not present in FFmpeg; generating clean video (subtitles active on Track T1 in editor)")
+
+        vf = ",".join(filters)
 
         cmd = inputs[:]
 

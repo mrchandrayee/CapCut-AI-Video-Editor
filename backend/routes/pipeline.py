@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from config import get_projects_dir, get_settings_path
 from db.models import Project, Scene, SessionLocal, get_db
 from services.assembly import AssemblyService
 from services.captions import CaptionsService
@@ -264,7 +265,7 @@ async def _run_pipeline(project_id: str, body: RunPipelineBody) -> None:
         db_scenes = _load_scenes(project_id)
 
         # Generate ASS captions
-        project_dir = Path.home() / ".hindi-video-studio" / "projects" / project_id
+        project_dir = get_projects_dir() / project_id
         ass_path = str(project_dir / "captions.ass")
         if srt_path and Path(srt_path).exists():
             captions_service.srt_to_ass(srt_path, ass_path)
@@ -317,7 +318,7 @@ async def _run_pipeline(project_id: str, body: RunPipelineBody) -> None:
 
 def _read_setting(key: str, default: str) -> str:
     import json
-    settings_path = Path.home() / ".hindi-video-studio" / "settings.json"
+    settings_path = get_settings_path()
     if settings_path.exists():
         try:
             data = json.loads(settings_path.read_text())

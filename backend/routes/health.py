@@ -16,7 +16,9 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-_SETTINGS_PATH = Path.home() / ".hindi-video-studio" / "settings.json"
+from config import get_settings_path
+
+_SETTINGS_PATH = get_settings_path()
 _SETTINGS_DEFAULTS = {
     "tts_url": "http://localhost:7700",
     "ollama_url": "http://localhost:11434",

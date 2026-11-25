@@ -62,8 +62,9 @@ class TTSService:
             {audio_path: str, srt_path: str, duration: float}
         """
         import websockets
+        from config import get_projects_dir
 
-        projects_dir = Path.home() / ".hindi-video-studio" / "projects" / project_id
+        projects_dir = get_projects_dir() / project_id
         projects_dir.mkdir(parents=True, exist_ok=True)
         wav_path = projects_dir / "narration.wav"
         srt_path = projects_dir / "narration.srt"
@@ -72,6 +73,9 @@ class TTSService:
         request_id = str(uuid.uuid4())[:8]
 
         log.info(f"[TTS] Connecting to {ws_url}")
+        wav_bytes = None
+        sample_rate = 44100
+
         try:
             async with websockets.connect(ws_url, open_timeout=10) as ws:
                 # Wait for ready message
@@ -100,6 +104,7 @@ class TTSService:
 
                 audio_b64 = msg["audio_b64"]
                 sample_rate = msg.get("sample_rate", 44100)
+                wav_bytes = base64.b64decode(audio_b64)
 
         except Exception as exc:
             log.warning(f"[TTS] VEXYL-TTS WebSocket unavailable ({exc}). Using built-in audio synthesizer fallback.")
@@ -132,7 +137,6 @@ class TTSService:
             wav_bytes = wav_io.getvalue()
 
         # Save WAV
-        wav_bytes = base64.b64decode(audio_b64)
         async with aiofiles.open(wav_path, "wb") as f:
             await f.write(wav_bytes)
         log.info(f"[TTS] Saved WAV: {wav_path} ({len(wav_bytes)} bytes)")

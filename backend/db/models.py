@@ -15,19 +15,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
+from config import get_db_path
+
 # ── Path setup ───────────────────────────────────────────────────────────────
-_DEFAULT_DATA_DIR = (
-    Path.home() / ".drishqan"
-    if (Path.home() / ".drishqan").exists() or not (Path.home() / ".hindi-video-studio").exists()
-    else Path.home() / ".hindi-video-studio"
-)
-_DB_PATH = os.environ.get(
-    "DRISHQAN_DB",
-    os.environ.get(
-        "HINDI_STUDIO_DB",
-        str(_DEFAULT_DATA_DIR / "projects.db"),
-    ),
-)
+_DB_PATH = get_db_path()
 _DB_URL = f"sqlite:///{_DB_PATH}"
 
 engine = create_engine(_DB_URL, connect_args={"check_same_thread": False})

@@ -111,6 +111,7 @@ export default function App() {
   const [showNewModal, setShowNewModal] = useState(false)
   const [showPipeline, setShowPipeline] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [wsMessages, setWsMessages] = useState([])
   const playTimerRef = useRef(null)
   const wsRef = useRef(null)
 
@@ -130,8 +131,11 @@ export default function App() {
   // Connect WebSocket to backend for live progress updates
   useEffect(() => {
     if (!project?.id) return
-    const wsHost = window.location.hostname || 'localhost'
-    const wsUrl = `ws://${wsHost}:8765/ws/${project.id}`
+    const wsHost = window.location.hostname || '127.0.0.1'
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsPort = window.location.port ? window.location.port : '8765'
+    const targetPort = wsPort === '5173' ? '8765' : wsPort || '8765'
+    const wsUrl = `${wsProto}//${wsHost}:${targetPort}/ws/${project.id}`
     let ws = null
     try {
       ws = new WebSocket(wsUrl)
@@ -139,7 +143,7 @@ export default function App() {
       ws.onmessage = (evt) => {
         try {
           const msg = JSON.parse(evt.data)
-          setWsMessages((prev) => [...prev.slice(-99), msg])
+          setWsMessages((prev) => [...(Array.isArray(prev) ? prev.slice(-99) : []), msg])
           if (msg.type === 'pipeline_done') {
             fetch('/api/projects')
               .then((r) => r.json())

@@ -140,7 +140,8 @@ class VideoService:
         prompt: str,
     ) -> str:
         """Generate high-quality cinematic canvas video using FFmpeg if GPU model engine is offline."""
-        dest_dir = Path.home() / ".hindi-video-studio" / "projects" / project_id / "scenes"
+        from config import get_projects_dir
+        dest_dir = get_projects_dir() / project_id / "scenes"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / f"scene_{scene_num}.mp4"
 
@@ -250,7 +251,8 @@ class VideoService:
         self, job_id: str, output_url: str, project_id: str, scene_num: int
     ) -> str:
         """Download the rendered MP4 to local storage."""
-        scenes_dir = Path.home() / ".hindi-video-studio" / "projects" / project_id / "scenes"
+        from config import get_projects_dir
+        scenes_dir = get_projects_dir() / project_id / "scenes"
         scenes_dir.mkdir(parents=True, exist_ok=True)
         dest = scenes_dir / f"scene_{scene_num:03d}.mp4"
 

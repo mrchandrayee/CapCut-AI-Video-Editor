@@ -14,7 +14,9 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-SETTINGS_PATH = Path.home() / ".hindi-video-studio" / "settings.json"
+from config import get_settings_path
+
+SETTINGS_PATH = get_settings_path()
 
 DEFAULT_SETTINGS = {
     "tts_url": "http://localhost:7700",

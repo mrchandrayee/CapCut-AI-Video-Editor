@@ -19,19 +19,9 @@ from db.models import Project, Scene, get_db
 
 router = APIRouter()
 
-import os
-_DEFAULT_DATA_DIR = (
-    Path.home() / ".drishqan"
-    if (Path.home() / ".drishqan").exists() or not (Path.home() / ".hindi-video-studio").exists()
-    else Path.home() / ".hindi-video-studio"
-)
-_DATA_DIR = Path(
-    os.environ.get(
-        "DRISHQAN_DATA_DIR",
-        os.environ.get("STUDIO_DATA_DIR", str(_DEFAULT_DATA_DIR)),
-    )
-)
-PROJECTS_DIR = _DATA_DIR / "projects"
+from config import get_projects_dir
+
+PROJECTS_DIR = get_projects_dir()
 
 
 class CreateProjectBody(BaseModel):

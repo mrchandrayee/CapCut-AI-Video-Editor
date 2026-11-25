@@ -73,6 +73,14 @@ function startService(svc) {
       processes[svc.name] = null
     }
 
+    // Ensure port is free before spawning new server
+    if (process.platform !== 'win32' && svc.port) {
+      try {
+        const { execSync } = require('child_process')
+        execSync(`lsof -ti :${svc.port} | xargs kill -9 2>/dev/null || true`)
+      } catch {}
+    }
+
     const proc = spawn(svc.cmd, svc.args, {
       cwd: svc.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -322,7 +330,8 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  stopAll()
+  app.quit()
 })
 
 app.on('before-quit', () => {

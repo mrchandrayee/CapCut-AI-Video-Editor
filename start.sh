@@ -60,6 +60,15 @@ if [ ! -d "$ROOT/frontend/dist" ]; then
   cd "$ROOT"
 fi
 
+# Ensure port 8765 is free from any previous session
+if command -v lsof >/dev/null 2>&1; then
+  OLD_PID=$(lsof -ti :8765 2>/dev/null || true)
+  if [ -n "$OLD_PID" ]; then
+    echo "Freeing port 8765 (killing previous process $OLD_PID)..."
+    kill -9 $OLD_PID 2>/dev/null || true
+  fi
+fi
+
 # Start the Electron app (it manages all Python processes internally)
 echo "Starting DRISHQAN..."
 cd "$ROOT" && npm start

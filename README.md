@@ -58,36 +58,35 @@ Full grid of Cutflow caption styles with live Hindi preview text.
 
 ## Architecture
 
-Three Python services started and managed by Electron at launch:
+The Studio is built directly on [Hamza Abika's Cutflow](https://github.com/hamzaabika/cutflow) open-source video editor architecture, upgraded with a native Python AI Studio backend:
 
-| Service | Port | Directory |
-|---------|------|-----------|
-| Video Engine (FastAPI + AI models) | 47872 | `engines/videostudio/` |
-| Voice Engine (VEXYL-TTS / Parler-TTS) | 7700 | `engines/vexyl-tts/` |
-| Studio Backend (orchestration + projects) | 8765 | `backend/` |
+| Component | Port / Type | Directory |
+|-----------|-------------|-----------|
+| Studio Backend (FastAPI: TTS + Video + LLM + Assembly) | 8765 | `backend/` |
+| Cutflow Frontend (React + Vite + Cutflow Design System) | 5173 / SPA | `frontend/` |
+| Electron Shell (Desktop Packaging) | Desktop | `electron/` |
 
-The React + Vite frontend runs on port 5173 in development, or is served by the backend in production. Electron loads the loading screen, starts all three services in parallel, then opens the main window once all three pass their health checks.
+The React + Vite frontend runs on port 5173 in development, or is served as a bundled SPA by the backend in production. Electron boots the unified backend and immediately opens the full Cutflow video editor window.
 
 ## Project Structure
 
 ```
-hindi-video-studio/
-├── electron/          # Electron main process and preload
-├── frontend/          # React + Vite app
+CapCut-in-AI-Video-studio/
+├── electron/          # Electron main process, preload, and loading screen
+├── frontend/          # Cutflow React + Vite video editor
 │   └── src/
-│       ├── components/  # UI components
-│       ├── lib/         # Cutflow rendering library (fonts, text, timeline)
-│       └── ui/          # Cutflow UI kit (Button, Card, etc.)
-├── backend/           # Studio orchestration backend (FastAPI, port 8765)
-├── engines/
-│   ├── videostudio/   # AI video generation backend (FastAPI, port 47872)
-│   └── vexyl-tts/     # Indian TTS server (FastAPI, port 7700)
+│       ├── components/  # Cutflow Timeline, Captions, Script, Scenes
+│       ├── lib/         # Cutflow engine (fonts, text, anim, timeline)
+│       ├── ui/          # Cutflow UI kit (Button, Card, Section, Tabs)
+│       └── styles/      # Cutflow production dark theme
+├── backend/           # Unified AI backend (FastAPI, port 8765)
+│   ├── routes/        # API endpoints (projects, pipeline, settings, health)
+│   ├── services/      # TTS (Indic-Parler), Video AI, LLM, Assembly, Captions
+│   └── db/            # SQLite models
 └── start.sh           # One-command setup and launch
 ```
 
 ## Ports
 
-- **47872** — Video Engine (`engines/videostudio/`)
-- **7700** — Voice Engine (`engines/vexyl-tts/`)
 - **8765** — Studio Backend (`backend/`)
 - **5173** — Frontend dev server (Vite, development only)

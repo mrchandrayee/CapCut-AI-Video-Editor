@@ -21,21 +21,21 @@ Hindi Video Studio is a fully self-contained desktop application. Electron start
 │              │                │                 │                   │
 │       starts │         starts │          starts │                   │
 │              ▼                ▼                 ▼                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐     │
-│  │ Video Engine │  │ Voice Engine │  │  Studio Backend      │     │
-│  │ Port: 47872  │  │ Port: 7700   │  │  Port: 8765          │     │
-│  │              │  │              │  │                      │     │
-│  │ engines/     │  │ engines/     │  │ backend/             │     │
-│  │ videostudio/ │  │ vexyl-tts/   │  │                      │     │
-│  │              │  │              │  │ routes/              │     │
-│  │ FastAPI      │  │ FastAPI      │  │ services/            │     │
-│  │ uvicorn      │  │ uvicorn      │  │ db/ (SQLite)         │     │
-│  │              │  │              │  │                      │     │
-│  │ Lance 3B     │  │ ai4bharat/   │  │ → calls Video Engine │     │
-│  │ LTX-Video    │  │ indic-parler │  │ → calls Voice Engine │     │
-│  │ Wan 2.2      │  │ -tts         │  │ → calls FFmpeg       │     │
-│  │ CogVideoX    │  │ 22 languages │  │ → WebSocket /ws/{id} │     │
-│  └──────────────┘  └──────────────┘  └──────────┬───────────┘     │
+│  ┌───────────────────────────────────────────────────────────┐    │
+│  │                Studio Backend (Unified Engine)            │    │
+│  │                Port: 8765                                 │    │
+│  │                                                           │    │
+│  │                backend/                                   │    │
+│  │                routes/                                    │    │
+│  │                services/                                  │    │
+│  │                db/ (SQLite)                               │    │
+│  │                                                           │    │
+│  │                • Indic TTS (ai4bharat / 22 languages)     │    │
+│  │                • AI Video Diffusion (Lance 3B / CogVideo) │    │
+│  │                • Devanagari Caption & ASS Assembly        │    │
+│  │                • FFmpeg rendering pipeline                │    │
+│  │                • WebSocket /ws/{id}                       │    │
+│  └─────────────────────────────┬─────────────────────────────┘    │
 │                                                  │                  │
 │  ┌───────────────────────────────────────────────▼──────────────┐  │
 │  │          React + Vite Frontend (port 5173 dev / 8765 prod)   │  │
@@ -100,20 +100,10 @@ hindi-video-studio/
 │   ├── main.py
 │   ├── routes/
 │   └── services/
-│       ├── tts.py
-│       ├── video.py
-│       ├── assembly.py
+│       ├── tts.py                 # Indic-Parler / VEXYL-TTS service
+│       ├── video.py               # AI Video diffusion service
+│       ├── assembly.py            # FFmpeg assembly
 │       └── captions.py            # SRT→ASS with Noto Sans Devanagari
-├── engines/
-│   ├── videostudio/               # Embedded from videostudio-mac-main/app/
-│   │   ├── backend/
-│   │   ├── frontend/
-│   │   ├── requirements.txt
-│   │   └── venv/                  # Created by start.sh
-│   └── vexyl-tts/                 # Embedded from vexyl-tts-main/
-│       ├── vexyl_tts_server.py
-│       ├── requirements.txt
-│       └── venv/                  # Created by start.sh
 ├── package.json                   # Electron app package
 ├── start.sh                       # One-command setup + launch
 └── ARCHITECTURE.md

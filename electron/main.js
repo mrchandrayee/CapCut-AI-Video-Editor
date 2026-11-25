@@ -7,8 +7,6 @@ const http = require('http')
 
 // ── Port / path constants ────────────────────────────────────────────────────
 
-const PORT_VIDEOSTUDIO = 47872
-const PORT_VEXYL_TTS = 7700
 const PORT_BACKEND = 8765
 const FRONTEND_PORT = 5173
 const STARTUP_TIMEOUT_MS = 8_000
@@ -52,24 +50,6 @@ function resolvePython(svcDir) {
 function serviceConfigs() {
   const root = appRoot()
   return [
-    {
-      name: 'videostudio',
-      label: 'Video Engine',
-      port: PORT_VIDEOSTUDIO,
-      cwd: path.join(root, 'engines', 'videostudio'),
-      cmd: resolvePython(path.join(root, 'engines', 'videostudio')),
-      args: ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(PORT_VIDEOSTUDIO)],
-      healthUrl: `http://127.0.0.1:${PORT_VIDEOSTUDIO}/api/catalog`,
-    },
-    {
-      name: 'vexyl-tts',
-      label: 'Voice Engine',
-      port: PORT_VEXYL_TTS,
-      cwd: path.join(root, 'engines', 'vexyl-tts'),
-      cmd: resolvePython(path.join(root, 'engines', 'vexyl-tts')),
-      args: ['vexyl_tts_server.py'],
-      healthUrl: `http://127.0.0.1:${PORT_VEXYL_TTS}/health`,
-    },
     {
       name: 'backend',
       label: 'Studio Backend',

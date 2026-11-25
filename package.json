@@ -36,12 +36,11 @@
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "asarUnpack": [
-      "engines/**"
+      "backend/**"
     ],
     "files": [
       "electron/**",
       "backend/**",
-      "engines/**",
       "frontend/dist/**",
       "package.json",
       "!**/node_modules/.cache",
@@ -51,16 +50,6 @@
       "!**/.git"
     ],
     "extraResources": [
-      {
-        "from": "engines/",
-        "to": "engines/",
-        "filter": [
-          "**/*",
-          "!**/venv",
-          "!**/__pycache__",
-          "!**/*.pyc"
-        ]
-      },
       {
         "from": "backend/",
         "to": "backend/",

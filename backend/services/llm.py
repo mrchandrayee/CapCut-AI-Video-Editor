@@ -213,6 +213,32 @@ def validate_scenes(
             raise ValueError("LLM response is not a list")
         return validate_scenes(scenes, total_duration=total_duration)
 
+    def _rule_based_segmentation(self, script: str, duration: float) -> list[dict]:
+        """Smart fallback sentence-based scene segmenter when Ollama is offline."""
+        import math, re
+        sentences = [s.strip() for s in re.split(r"[।\.\!\?\n]+", script) if s.strip()]
+        if not sentences:
+            sentences = [script.strip() or "Cinematic Scene"]
+
+        if len(sentences) > 6:
+            chunk_size = math.ceil(len(sentences) / 5)
+            sentences = [" ".join(sentences[i:i+chunk_size]) for i in range(0, len(sentences), chunk_size)]
+
+        total_d = max(duration, 3.0)
+        per_scene = total_d / len(sentences)
+        scenes = []
+        for i, s in enumerate(sentences):
+            start = round(i * per_scene, 2)
+            end = round(total_d if i == len(sentences) - 1 else (i + 1) * per_scene, 2)
+            scenes.append({
+                "scene_num": i + 1,
+                "start_s": start,
+                "end_s": end,
+                "visual_prompt": f"Cinematic 4K shot, dynamic lighting, dramatic angle: {s[:50]}",
+                "scene_title": f"Scene {i + 1}",
+            })
+        return scenes
+
     async def segment_script(
         self,
         script: str,
@@ -224,8 +250,12 @@ def validate_scenes(
         Returns list of {scene_num, start_s, end_s, visual_prompt, scene_title}.
         Retries once on JSON parse failure.
         """
-        if not self._model:
-            await self.probe_model()
+        try:
+            if not self._model:
+                await self.probe_model()
+        except Exception as exc:
+            log.warning(f"[LLM] Ollama unavailable ({exc}). Using rule-based scene segmenter.")
+            return self._rule_based_segmentation(script, duration)
 
         user_prompt = (
             f"Script (Hindi/Hinglish, {duration:.1f} seconds total):\n\n{script}\n\n"
@@ -242,9 +272,10 @@ def validate_scenes(
                 if attempt == 0:
                     log.warning(f"[LLM] Parse failed (attempt 1): {exc}. Retrying...")
                 else:
-                    raise RuntimeError(f"LLM scene segmentation failed after 2 attempts: {exc}") from exc
+                    log.warning(f"[LLM] Parse failed after retries: {exc}. Using fallback.")
+                    return self._rule_based_segmentation(script, duration)
 
-        return []  # unreachable
+        return self._rule_based_segmentation(script, duration)
 
     async def prompts_from_srt(self, srt_content: str) -> list[dict]:
         """
@@ -252,24 +283,29 @@ def validate_scenes(
         Returns list of {scene_num, start_s, end_s, visual_prompt, scene_title}.
         Retries once on JSON parse failure.
         """
-        if not self._model:
-            await self.probe_model()
+        try:
+            if not self._model:
+                await self.probe_model()
+        except Exception as exc:
+            log.warning(f"[LLM] Ollama unavailable ({exc}). Using fallback prompts.")
+            return self._rule_based_segmentation(srt_content, 15.0)
 
         user_prompt = f"SRT content:\n\n{srt_content}\n\nCreate a JSON scene breakdown for a cinematic video."
 
         for attempt in range(2):
             try:
                 raw = await self._call_ollama(self._model, SYSTEM_PROMPT_SRT, user_prompt)
-                scenes = self._parse_scenes(raw, total_duration=duration)
+                scenes = self._parse_scenes(raw, total_duration=15.0)
                 log.info(f"[LLM] Generated {len(scenes)} prompts from SRT (attempt {attempt + 1})")
                 return scenes
             except Exception as exc:
                 if attempt == 0:
                     log.warning(f"[LLM] SRT parse failed (attempt 1): {exc}. Retrying...")
                 else:
-                    raise RuntimeError(f"LLM SRT prompting failed after 2 attempts: {exc}") from exc
+                    log.warning(f"[LLM] SRT prompt failed after retries: {exc}. Using fallback.")
+                    return self._rule_based_segmentation(srt_content, 15.0)
 
-        return []  # unreachable
+        return self._rule_based_segmentation(srt_content, 15.0)
 
     async def health_check(self) -> dict:
         """Probe Ollama and return health info."""

@@ -23,21 +23,7 @@ fi
 echo "Using Python: $PY_BIN ($($PY_BIN --version))"
 export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
-# Setup venv for videostudio engine
-if [ ! -d "$ROOT/engines/videostudio/venv" ]; then
-  echo "Setting up Video Engine venv..."
-  "$PY_BIN" -m venv "$ROOT/engines/videostudio/venv"
-  "$ROOT/engines/videostudio/venv/bin/pip" install -r "$ROOT/engines/videostudio/requirements.txt"
-fi
-
-# Setup venv for vexyl-tts engine
-if [ ! -d "$ROOT/engines/vexyl-tts/venv" ]; then
-  echo "Setting up Voice Engine venv..."
-  "$PY_BIN" -m venv "$ROOT/engines/vexyl-tts/venv"
-  "$ROOT/engines/vexyl-tts/venv/bin/pip" install -r "$ROOT/engines/vexyl-tts/requirements.txt"
-fi
-
-# Setup venv for orchestration backend
+# Setup venv for studio backend
 if [ ! -d "$ROOT/backend/venv" ]; then
   echo "Setting up Studio Backend venv..."
   "$PY_BIN" -m venv "$ROOT/backend/venv"

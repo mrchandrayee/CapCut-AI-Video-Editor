@@ -44,15 +44,19 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mac-dmg
-          path: dist/*.dmg
+          name: mac-dist
+          path: |
+            dist/*.dmg
+            dist/*.zip
           retention-days: 7
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          files: |
+            dist/*.dmg
+            dist/*.zip
           name: "DRISHQAN ${{ github.ref_name }}"
           body: |
             ## DRISHQAN ${{ github.ref_name }}

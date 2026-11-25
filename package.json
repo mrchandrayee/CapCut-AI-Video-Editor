@@ -72,6 +72,13 @@
             "arm64",
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "darkModeSupport": true,
@@ -82,7 +89,7 @@
     },
     "dmg": {
       "title": "${productName} ${version}",
-      "background": null,
+      "background": "build/background.tiff",
       "window": {
         "width": 540,
         "height": 380

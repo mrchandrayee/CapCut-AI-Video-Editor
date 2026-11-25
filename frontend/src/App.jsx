@@ -114,7 +114,7 @@ export default function App() {
   const playTimerRef = useRef(null)
   const wsRef = useRef(null)
 
-  // Fetch projects from backend if available
+  // Load projects on initial mount
   useEffect(() => {
     fetch('/api/projects')
       .then((res) => res.json())
@@ -124,10 +124,65 @@ export default function App() {
           setProject(data.projects[0])
         }
       })
-      .catch(() => {
-        // Backend offline, working with local default project
-      })
+      .catch(() => {})
   }, [])
+
+  // Connect WebSocket to backend for live progress updates
+  useEffect(() => {
+    if (!project?.id) return
+    const wsHost = window.location.hostname || 'localhost'
+    const wsUrl = `ws://${wsHost}:8765/ws/${project.id}`
+    let ws = null
+    try {
+      ws = new WebSocket(wsUrl)
+      ws.onopen = () => console.log(`[WS] Connected for project ${project.id}`)
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data)
+          setWsMessages((prev) => [...prev.slice(-99), msg])
+          if (msg.type === 'pipeline_done') {
+            fetch('/api/projects')
+              .then((r) => r.json())
+              .then((d) => {
+                if (d.projects && d.projects.length) {
+                  setProjects(d.projects)
+                  const updated = d.projects.find((p) => p.id === project.id)
+                  if (updated) setProject(updated)
+                }
+              })
+              .catch(() => {})
+          }
+        } catch (e) {
+          console.error('[WS] parse error:', e)
+        }
+      }
+    } catch (e) {
+      console.warn('[WS] connection failed:', e)
+    }
+    return () => {
+      if (ws) {
+        try { ws.close() } catch (e) {}
+      }
+    }
+  }, [project?.id])
+
+  async function handleStartPipeline() {
+    setShowPipeline(true)
+    try {
+      await fetch(`/api/pipeline/${project.id || 'demo-project'}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: selectedModel || 'lance-3b',
+          quality: 'final',
+          speaker: 'divya',
+          language: 'hi-IN',
+        }),
+      })
+    } catch (err) {
+      console.error('Pipeline run error:', err)
+    }
+  }
 
   // Total duration calculation
   const totalDuration = (project.scenes || []).reduce((acc, s) => acc + (s.duration || 5), 0)
@@ -236,7 +291,7 @@ export default function App() {
           <button className="btn btn-sm" onClick={() => setShowNewModal(true)}>
             + New Project
           </button>
-          <button className="btn btn-sm btn-primary" onClick={() => setShowPipeline(true)}>
+          <button className="btn btn-sm btn-primary" onClick={handleStartPipeline}>
             ⚡ Generate AI Video
           </button>
           <button className="btn btn-sm" onClick={() => setShowExport(true)}>
@@ -774,7 +829,7 @@ export default function App() {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => setShowPipeline(true)}
+                onClick={handleStartPipeline}
               >
                 ⚡ Render Current Video
               </button>
@@ -870,7 +925,26 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <button className="btn btn-sm" onClick={() => setShowPipeline(false)}>✕ Close</button>
             </div>
-            <PipelineView project={project} />
+            <PipelineView
+              project={project}
+              wsMessages={wsMessages}
+              onViewExport={() => {
+                setShowPipeline(false)
+                setShowExport(true)
+              }}
+              onPipelineComplete={() => {
+                fetch('/api/projects')
+                  .then((r) => r.json())
+                  .then((d) => {
+                    if (d.projects && d.projects.length) {
+                      setProjects(d.projects)
+                      const updated = d.projects.find((p) => p.id === project.id)
+                      if (updated) setProject(updated)
+                    }
+                  })
+                  .catch(() => {})
+              }}
+            />
           </div>
         </div>
       )}
